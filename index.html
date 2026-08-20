@@ -51,6 +51,7 @@
             gap: 5px;
             margin-bottom: 15px;
             border-bottom: 2px solid #eee;
+            flex-wrap: wrap;
         }
         .tab-btn {
             padding: 10px 20px;
@@ -92,8 +93,9 @@
             font-family: inherit;
         }
         textarea {
-            min-height: 80px;
+            min-height: 100px;
             resize: vertical;
+            font-family: monospace;
         }
         
         .btn-success {
@@ -146,7 +148,7 @@
             padding: 8px;
             border-radius: 4px;
             font-size: 11px;
-            max-height: 100px;
+            max-height: 150px;
             overflow-y: auto;
             margin-bottom: 15px;
             color: #444;
@@ -163,7 +165,7 @@
         
         .detected-items {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 12px;
             margin-bottom: 15px;
         }
@@ -204,27 +206,26 @@
         }
         
         .item-card-body {
-            display: none;
-        }
-        
-        .item-card-body.open {
             display: block;
         }
         
         .item-field {
-            margin-bottom: 6px;
-            padding: 4px;
+            margin-bottom: 8px;
+            padding: 6px;
             background: white;
             border-radius: 4px;
+            border-left: 3px solid #007aff;
         }
         .item-field-label {
             font-weight: bold;
             color: #666;
-            font-size: 12px;
+            font-size: 11px;
+            text-transform: uppercase;
         }
         .item-field-value {
             color: #333;
             margin-top: 2px;
+            font-size: 13px;
         }
         
         .table-wrapper { overflow-x: auto; margin-top: 15px; }
@@ -245,6 +246,7 @@
         .stats-item {
             display: inline-block;
             margin-right: 20px;
+            margin-bottom: 8px;
         }
         
         .stats-value {
@@ -291,86 +293,149 @@
             gap: 10px;
             margin-bottom: 15px;
         }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .field-mapping {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .field-mapping-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .field-mapping-label {
+            font-weight: bold;
+            color: #555;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📦 Advanced Inventory Scanner</h2>
+    <h2>📦 Advanced Inventory Scanner - Smart Extraction</h2>
     
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('scan-tab')">📷 Scan & Review</button>
-        <button class="tab-btn" onclick="switchTab('batch-tab')">📝 Batch Input</button>
+        <button class="tab-btn active" onclick="switchTab('scan-tab')">📷 Scan & Extract</button>
+        <button class="tab-btn" onclick="switchTab('config-tab')">⚙️ Configure Fields</button>
         <button class="tab-btn" onclick="switchTab('inventory-tab')">📊 Inventory List</button>
-        <button class="tab-btn" onclick="switchTab('config-tab')">⚙️ Settings</button>
     </div>
 
-    <!-- SCAN & REVIEW TAB -->
+    <!-- SCAN & EXTRACT TAB -->
     <div id="scan-tab" class="tab-content active">
-        <div class="upload-section">
-            <label class="file-label">
-                📷 Scan Multiple Items Photo
-                <input type="file" id="imageInput" accept="image/*">
-            </label>
-            <div id="status">Ready to scan photo with multiple items.</div>
+        <div class="info-box">
+            <strong>💡 How it works:</strong> Take a photo of your item label/packaging. The scanner will extract ONLY the specific information you configured (Code, Description, Batch No, etc.) and ignore everything else.
         </div>
 
-        <label style="font-size:11px; color:#777;">Raw OCR Text Captured:</label>
-        <div id="rawLog" class="raw-output">No photo scanned yet. Extracted text will appear here.</div>
+        <div class="upload-section">
+            <label class="file-label">
+                📷 Scan Item Label/Package
+                <input type="file" id="imageInput" accept="image/*">
+            </label>
+            <div id="status">Ready to scan item labels.</div>
+        </div>
+
+        <label style="font-size:11px; color:#777;">Raw OCR Text from Image:</label>
+        <div id="rawLog" class="raw-output">No photo scanned yet.</div>
 
         <div id="reviewSection" class="review-section" style="display: none;">
-            <h3>🔍 Review Detected Items</h3>
+            <h3>✅ Extracted Information</h3>
             <div class="stats">
                 <div class="stats-item">Items Detected: <span class="stats-value" id="detectedCount">0</span></div>
-                <div class="stats-item">Items Selected: <span class="stats-value" id="selectedCount">0</span></div>
             </div>
             
             <div class="detected-items" id="detectedItems"></div>
             
             <div class="buttons-row">
-                <button class="btn-secondary" onclick="selectAllItems()">✓ Select All</button>
-                <button class="btn-secondary" onclick="deselectAllItems()">✗ Deselect All</button>
+                <button class="btn-success" onclick="addExtractedItem()">✅ Save to Inventory</button>
+                <button class="btn-danger" onclick="discardScan()">❌ Clear & Rescan</button>
             </div>
-            
-            <button class="btn-success" onclick="addSelectedItems()">✅ Add Selected Items to Inventory</button>
-            <button class="btn-danger" onclick="discardScan()">❌ Clear & Rescan</button>
         </div>
     </div>
 
-    <!-- BATCH INPUT TAB -->
-    <div id="batch-tab" class="tab-content">
-        <h3>📝 Bulk Add Items</h3>
-        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-            Paste structured item data. Format each line as: <code>CODE|NAME|BATCH|QTY|UOM|EXPIRY</code>
-        </p>
+    <!-- CONFIGURE FIELDS TAB -->
+    <div id="config-tab" class="tab-content">
+        <h3>⚙️ Configure Field Extraction</h3>
         
-        <div class="form-group full-width">
-            <label for="batchInput">Paste Item Data (one item per line):</label>
-            <textarea id="batchInput" placeholder="SKU001|Vitamin C Tablets|B2401|100|Pcs|2025-12-31&#10;SKU002|Cough Syrup|B2402|50|Bottle|2024-06-15"></textarea>
+        <div class="info-box">
+            <strong>📌 Instructions:</strong> Define which information to extract from your item labels. For each field, enter the exact label name or keyword that appears on your items (e.g., "Code:", "Product:", "Batch No:", etc.).
         </div>
         
-        <div class="buttons-row">
-            <button class="btn-secondary" onclick="parseBatchInput()">🔍 Preview Items</button>
-            <button class="btn-success" onclick="addBatchItems()">✅ Add All Items</button>
-        </div>
-        
-        <div id="batchReview" style="display: none; margin-top: 15px;">
-            <h4>Preview:</h4>
-            <div class="table-wrapper">
-                <table id="batchPreviewTable">
-                    <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Description</th>
-                            <th>Batch/Lot</th>
-                            <th>Qty</th>
-                            <th>UOM</th>
-                            <th>Expiry</th>
-                        </tr>
-                    </thead>
-                    <tbody id="batchPreviewBody"></tbody>
-                </table>
+        <div class="config-section">
+            <h4>Field Configuration</h4>
+            <p style="color: #666; font-size: 12px; margin-bottom: 15px;">Define keywords/labels for each field. Scanner will look for these labels and capture the value that follows.</p>
+            
+            <div class="field-mapping">
+                <div class="field-mapping-row">
+                    <div class="field-mapping-label">📦 Code/SKU:</div>
+                    <input type="text" id="codeLabel" value="Code, SKU, Ref, Item No" placeholder="e.g., Code:, SKU:, Item No:" style="width: 100%;">
+                </div>
+                <div style="font-size: 11px; color: #999;">Labels that identify product code (comma-separated)</div>
             </div>
+            
+            <div class="field-mapping">
+                <div class="field-mapping-row">
+                    <div class="field-mapping-label">📝 Description:</div>
+                    <input type="text" id="nameLabel" value="Product, Description, Name, Item" placeholder="e.g., Product:, Description:, Name:" style="width: 100%;">
+                </div>
+                <div style="font-size: 11px; color: #999;">Labels that identify product name/description (comma-separated)</div>
+            </div>
+            
+            <div class="field-mapping">
+                <div class="field-mapping-row">
+                    <div class="field-mapping-label">🏷️ Batch/Lot No:</div>
+                    <input type="text" id="batchLabel" value="Batch, Lot, Batch No, Lot No, B/N, L/N" placeholder="e.g., Batch:, Lot No:, B/N:" style="width: 100%;">
+                </div>
+                <div style="font-size: 11px; color: #999;">Labels that identify batch/lot number (comma-separated)</div>
+            </div>
+            
+            <div class="field-mapping">
+                <div class="field-mapping-row">
+                    <div class="field-mapping-label">📅 Expiry Date:</div>
+                    <input type="text" id="expiryLabel" value="Expiry, Exp, Exp Date, Best Before, Expires, Use By" placeholder="e.g., Expiry:, Exp Date:, Best Before:" style="width: 100%;">
+                </div>
+                <div style="font-size: 11px; color: #999;">Labels that identify expiry date (comma-separated)</div>
+            </div>
+            
+            <div class="field-mapping">
+                <div class="field-mapping-row">
+                    <div class="field-mapping-label">📦 Quantity:</div>
+                    <input type="text" id="qtyLabel" value="Qty, Quantity, Count, Amount, Pcs, Units" placeholder="e.g., Qty:, Quantity:, Amount:" style="width: 100%;">
+                </div>
+                <div style="font-size: 11px; color: #999;">Labels that identify quantity (comma-separated)</div>
+            </div>
+            
+            <div class="field-mapping">
+                <div class="field-mapping-row">
+                    <div class="field-mapping-label">📏 Unit/UOM:</div>
+                    <input type="text" id="uomLabel" value="UOM, Unit, Per, Pcs, Bottle, Pack, Box, Tablet, Capsule" placeholder="e.g., UOM:, Unit:, Per:" style="width: 100%;">
+                </div>
+                <div style="font-size: 11px; color: #999;">Common units (comma-separated)</div>
+            </div>
+            
+            <button class="btn-secondary" onclick="saveConfiguration()">💾 Save Configuration</button>
+        </div>
+        
+        <div class="config-section">
+            <h4>📋 Your Current Configuration:</h4>
+            <pre id="configDisplay" style="background: white; padding: 12px; border-radius: 4px; font-size: 12px; overflow-x: auto; line-height: 1.6;"></pre>
         </div>
     </div>
 
@@ -401,70 +466,21 @@
             </table>
         </div>
     </div>
-
-    <!-- CONFIG TAB -->
-    <div id="config-tab" class="tab-content">
-        <h3>⚙️ Scan Configuration</h3>
-        
-        <div class="config-section">
-            <div class="config-group">
-                <label style="font-weight: bold; margin-bottom: 8px; display: block;">Item Separator Pattern</label>
-                <p style="margin: 5px 0; color: #666; font-size: 12px;">How are items separated in your photos?</p>
-                <select id="separatorType" style="margin-bottom: 10px;">
-                    <option value="newline">New Line (items on separate lines)</option>
-                    <option value="pipe">Pipe Delimiter | (e.g., SKU|Name|Batch)</option>
-                    <option value="comma">Comma Delimiter , (e.g., SKU,Name,Batch)</option>
-                    <option value="tab">Tab Delimiter (spreadsheet style)</option>
-                    <option value="auto">Auto-Detect (recommend)</option>
-                </select>
-            </div>
-            
-            <div class="config-group">
-                <label style="font-weight: bold; margin-bottom: 8px; display: block;">Field Order</label>
-                <p style="margin: 5px 0; color: #666; font-size: 12px;">Which order do fields appear in your photos? (Left to Right)</p>
-                <select id="fieldOrder" style="margin-bottom: 10px;">
-                    <option value="code-name-batch-qty-uom-expiry">Code | Name | Batch | Qty | UOM | Expiry</option>
-                    <option value="name-code-batch-expiry-qty">Name | Code | Batch | Expiry | Qty</option>
-                    <option value="code-batch-name-expiry">Code | Batch | Name | Expiry</option>
-                    <option value="name-batch-code-expiry">Name | Batch | Code | Expiry</option>
-                    <option value="custom">Custom (I'll specify)</option>
-                </select>
-            </div>
-            
-            <div class="config-group">
-                <label style="font-weight: bold; margin-bottom: 8px; display: block;">Custom Field Labels</label>
-                <p style="margin: 5px 0; color: #666; font-size: 12px;">Enter keywords that identify each field (e.g., "SKU, Code" for product code)</p>
-                <input type="text" id="codeKeywords" value="SKU, code, ref, id" placeholder="Code identifiers" style="margin-bottom: 8px;">
-                <input type="text" id="nameKeywords" value="name, description, product, item" placeholder="Name identifiers" style="margin-bottom: 8px;">
-                <input type="text" id="batchKeywords" value="batch, lot, b.n., b/n" placeholder="Batch identifiers" style="margin-bottom: 8px;">
-                <input type="text" id="expiryKeywords" value="exp, expiry, expires, best before, exp.date" placeholder="Expiry identifiers">
-            </div>
-            
-            <button class="btn-secondary" onclick="saveConfig()">💾 Save Settings</button>
-        </div>
-        
-        <div class="config-section">
-            <h4>Current Configuration:</h4>
-            <pre id="configDisplay" style="background: white; padding: 10px; border-radius: 4px; font-size: 11px; overflow-x: auto;"></pre>
-        </div>
-    </div>
 </div>
 
 <script>
     let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
-    let detectedItems = [];
-    let selectedItems = new Set();
+    let currentExtractedItem = null;
     let config = JSON.parse(localStorage.getItem('scanner_config')) || {
-        separatorType: 'auto',
-        fieldOrder: 'code-name-batch-qty-uom-expiry',
-        codeKeywords: 'SKU, code, ref, id',
-        nameKeywords: 'name, description, product, item',
-        batchKeywords: 'batch, lot, b.n., b/n',
-        expiryKeywords: 'exp, expiry, expires, best before, exp.date'
+        codeLabel: 'Code, SKU, Ref, Item No',
+        nameLabel: 'Product, Description, Name, Item',
+        batchLabel: 'Batch, Lot, Batch No, Lot No, B/N, L/N',
+        expiryLabel: 'Expiry, Exp, Exp Date, Best Before, Expires, Use By',
+        qtyLabel: 'Qty, Quantity, Count, Amount, Pcs, Units',
+        uomLabel: 'UOM, Unit, Per, Pcs, Bottle, Pack, Box, Tablet, Capsule'
     };
     
     function switchTab(tabName) {
-        // Hide all tabs
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -472,16 +488,13 @@
             btn.classList.remove('active');
         });
         
-        // Show selected tab
         document.getElementById(tabName).classList.add('active');
         event.target.classList.add('active');
         
-        // Update inventory stats when switching to inventory tab
         if (tabName === 'inventory-tab') {
             updateInventoryStats();
         }
         
-        // Update config display
         if (tabName === 'config-tab') {
             loadConfigDisplay();
         }
@@ -493,78 +506,41 @@
     }
     
     function loadConfigDisplay() {
-        const display = `Separator: ${config.separatorType}
-Field Order: ${config.fieldOrder}
-Code Keywords: ${config.codeKeywords}
-Name Keywords: ${config.nameKeywords}
-Batch Keywords: ${config.batchKeywords}
-Expiry Keywords: ${config.expiryKeywords}`;
+        const display = `Code/SKU Keywords: ${config.codeLabel}
+Description Keywords: ${config.nameLabel}
+Batch/Lot Keywords: ${config.batchLabel}
+Expiry Date Keywords: ${config.expiryLabel}
+Quantity Keywords: ${config.qtyLabel}
+UOM Keywords: ${config.uomLabel}`;
         document.getElementById('configDisplay').innerText = display;
     }
     
-    function saveConfig() {
+    function loadConfiguration() {
+        document.getElementById('codeLabel').value = config.codeLabel;
+        document.getElementById('nameLabel').value = config.nameLabel;
+        document.getElementById('batchLabel').value = config.batchLabel;
+        document.getElementById('expiryLabel').value = config.expiryLabel;
+        document.getElementById('qtyLabel').value = config.qtyLabel;
+        document.getElementById('uomLabel').value = config.uomLabel;
+        loadConfigDisplay();
+    }
+    
+    function saveConfiguration() {
         config = {
-            separatorType: document.getElementById('separatorType').value,
-            fieldOrder: document.getElementById('fieldOrder').value,
-            codeKeywords: document.getElementById('codeKeywords').value,
-            nameKeywords: document.getElementById('nameKeywords').value,
-            batchKeywords: document.getElementById('batchKeywords').value,
-            expiryKeywords: document.getElementById('expiryKeywords').value
+            codeLabel: document.getElementById('codeLabel').value,
+            nameLabel: document.getElementById('nameLabel').value,
+            batchLabel: document.getElementById('batchLabel').value,
+            expiryLabel: document.getElementById('expiryLabel').value,
+            qtyLabel: document.getElementById('qtyLabel').value,
+            uomLabel: document.getElementById('uomLabel').value
         };
         localStorage.setItem('scanner_config', JSON.stringify(config));
-        alert('✅ Settings saved!');
+        alert('✅ Configuration saved! Your field labels are now set.');
         loadConfigDisplay();
     }
     
-    function loadConfig() {
-        document.getElementById('separatorType').value = config.separatorType;
-        document.getElementById('fieldOrder').value = config.fieldOrder;
-        document.getElementById('codeKeywords').value = config.codeKeywords;
-        document.getElementById('nameKeywords').value = config.nameKeywords;
-        document.getElementById('batchKeywords').value = config.batchKeywords;
-        document.getElementById('expiryKeywords').value = config.expiryKeywords;
-        loadConfigDisplay();
-    }
-    
-    // Parse items from horizontally-read text
-    function parseMultipleItems(text) {
-        const items = [];
-        const lines = text.split('\n').filter(line => line.trim().length > 0);
-        
-        // Determine separator
-        let separator = config.separatorType;
-        if (separator === 'auto') {
-            if (text.includes('|')) separator = 'pipe';
-            else if (text.includes(',')) separator = 'comma';
-            else if (text.includes('\t')) separator = 'tab';
-            else separator = 'newline';
-        }
-        
-        let itemsArray = [];
-        if (separator === 'pipe' || separator === 'comma') {
-            const sep = separator === 'pipe' ? '|' : ',';
-            itemsArray = text.split('\n').map(line => line.split(sep).map(f => f.trim()));
-        } else if (separator === 'tab') {
-            itemsArray = text.split('\n').map(line => line.split('\t').map(f => f.trim()));
-        } else {
-            // Newline separator - each line is one item with fields separated by spaces or keywords
-            itemsArray = lines.map(line => [line]);
-        }
-        
-        itemsArray.forEach((fields, idx) => {
-            if (fields.every(f => !f)) return; // Skip empty lines
-            
-            const item = parseItemFields(fields.join(' '));
-            if (item.name || item.code) {
-                item.index = idx;
-                items.push(item);
-            }
-        });
-        
-        return items;
-    }
-    
-    function parseItemFields(text) {
+    // Extract ONLY specific fields based on configuration
+    function extractSpecificFields(text) {
         const item = {
             code: '',
             name: '',
@@ -575,136 +551,133 @@ Expiry Keywords: ${config.expiryKeywords}`;
             receive: setTodayDate()
         };
         
-        // Extract Code
-        const codeKeywords = config.codeKeywords.split(',').map(k => k.trim());
-        const codePattern = new RegExp(`(?:${codeKeywords.join('|')})[:\\s#.]*([A-Z0-9\\-_]+)`, 'i');
-        const codeMatch = text.match(codePattern);
-        if (codeMatch) item.code = codeMatch[1];
+        const lines = text.split('\n');
         
-        // Extract Name
-        const nameKeywords = config.nameKeywords.split(',').map(k => k.trim());
-        const namePattern = new RegExp(`(?:${nameKeywords.join('|')})[:\\s#.]*([^\\n|,]*?)(?=(?:${codeKeywords.join('|')}|${nameKeywords.join('|')}|batch|lot|exp|qty|quantity|uom)|$)`, 'i');
-        const nameMatch = text.match(namePattern);
-        if (nameMatch && nameMatch[1]) item.name = nameMatch[1].trim();
+        // Extract Code
+        const codeKeywords = config.codeLabel.split(',').map(k => k.trim());
+        const codeLabelPattern = codeKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const codeRegex = new RegExp(`(${codeLabelPattern})[:\\s]*([^\\n,|]+?)(?=[\\n,|]|$)`, 'i');
+        const codeMatch = text.match(codeRegex);
+        if (codeMatch && codeMatch[2]) {
+            item.code = codeMatch[2].trim().split(/[\s,|]/)[0]; // Get first word only
+        }
+        
+        // Extract Description
+        const nameKeywords = config.nameLabel.split(',').map(k => k.trim());
+        const nameLabelPattern = nameKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const nameRegex = new RegExp(`(${nameLabelPattern})[:\\s]*([^\\n,|]+?)(?=[\\n,|]|${codeKeywords.join('|')}|$)`, 'i');
+        const nameMatch = text.match(nameRegex);
+        if (nameMatch && nameMatch[2]) {
+            item.name = nameMatch[2].trim().substring(0, 100); // Limit to 100 chars
+        }
         
         // Extract Batch
-        const batchKeywords = config.batchKeywords.split(',').map(k => k.trim());
-        const batchPattern = new RegExp(`(?:${batchKeywords.join('|')})[:\\s#.]*([A-Z0-9\\-]+)`, 'i');
-        const batchMatch = text.match(batchPattern);
-        if (batchMatch) item.batch = batchMatch[1];
+        const batchKeywords = config.batchLabel.split(',').map(k => k.trim());
+        const batchLabelPattern = batchKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const batchRegex = new RegExp(`(${batchLabelPattern})[:\\s]*([^\\n,|]+?)(?=[\\n,|]|$)`, 'i');
+        const batchMatch = text.match(batchRegex);
+        if (batchMatch && batchMatch[2]) {
+            item.batch = batchMatch[2].trim().split(/[\s,|]/)[0];
+        }
         
         // Extract Quantity
-        const qtyMatch = text.match(/(?:qty|quantity)[:\\s#.]*(\d+)/i);
-        if (qtyMatch) item.qty = parseInt(qtyMatch[1]) || 1;
+        const qtyKeywords = config.qtyLabel.split(',').map(k => k.trim());
+        const qtyLabelPattern = qtyKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const qtyRegex = new RegExp(`(${qtyLabelPattern})[:\\s]*(\\d+)`, 'i');
+        const qtyMatch = text.match(qtyRegex);
+        if (qtyMatch && qtyMatch[2]) {
+            item.qty = parseInt(qtyMatch[2]) || 1;
+        }
         
-        // Auto-detect Unit
-        if (/pack/i.test(text)) item.uom = 'Pack';
-        else if (/bottle/i.test(text)) item.uom = 'Bottle';
-        else if (/pcs|piece|pc/i.test(text)) item.uom = 'Pcs';
+        // Extract UOM
+        const uomKeywords = config.uomLabel.split(',').map(k => k.trim());
+        const uomLabelPattern = uomKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const uomRegex = new RegExp(`(${uomLabelPattern})`, 'i');
+        const uomMatch = text.match(uomRegex);
+        if (uomMatch && uomMatch[1]) {
+            const uomValue = uomMatch[1].trim().toLowerCase();
+            if (uomValue.includes('bottle')) item.uom = 'Bottle';
+            else if (uomValue.includes('pack')) item.uom = 'Pack';
+            else if (uomValue.includes('box')) item.uom = 'Box';
+            else if (uomValue.includes('tablet')) item.uom = 'Tablet';
+            else if (uomValue.includes('capsule')) item.uom = 'Capsule';
+            else item.uom = uomValue.charAt(0).toUpperCase() + uomValue.slice(1);
+        }
         
-        // Extract Expiry
-        const expiryKeywords = config.expiryKeywords.split(',').map(k => k.trim());
-        const expPattern = new RegExp(`(?:${expiryKeywords.join('|')})[:\\s]*([0-9A-Za-z\\/\\-]+)`, 'i');
-        const expMatch = text.match(expPattern);
-        if (expMatch) item.expiry = expMatch[1];
-        
-        // Fallback: if no name extracted, use first 50 chars as name
-        if (!item.name && text.length > 0) {
-            item.name = text.substring(0, 60).replace(/[^\w\s]/g, ' ').trim();
+        // Extract Expiry Date
+        const expiryKeywords = config.expiryLabel.split(',').map(k => k.trim());
+        const expiryLabelPattern = expiryKeywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const expiryRegex = new RegExp(`(${expiryLabelPattern})[:\\s]*([0-9A-Za-z\\/\\-]+)`, 'i');
+        const expiryMatch = text.match(expiryRegex);
+        if (expiryMatch && expiryMatch[2]) {
+            item.expiry = expiryMatch[2].trim();
         }
         
         return item;
     }
     
-    function renderDetectedItems() {
+    function renderExtractedItem(item) {
         const container = document.getElementById('detectedItems');
         container.innerHTML = '';
         
-        detectedItems.forEach((item, idx) => {
-            const isSelected = selectedItems.has(idx);
-            const card = document.createElement('div');
-            card.className = `item-card ${isSelected ? 'selected' : ''}`;
-            card.innerHTML = `
-                <div class="item-card-header">
-                    <span>${item.code ? `[${item.code}]` : ''} ${item.name.substring(0, 25)}${item.name.length > 25 ? '...' : ''}</span>
-                    <button class="item-card-toggle" onclick="toggleItemSelection(${idx})">${isSelected ? '✓' : '+'}</button>
+        const card = document.createElement('div');
+        card.className = 'item-card selected';
+        card.innerHTML = `
+            <div class="item-card-header">
+                <span>📦 Extracted Item</span>
+                <span style="font-size: 12px;">✓ Ready to save</span>
+            </div>
+            <div class="item-card-body">
+                <div class="item-field">
+                    <div class="item-field-label">Code/SKU</div>
+                    <div class="item-field-value">${item.code || '(Not found)'}</div>
                 </div>
-                <div class="item-card-body ${isSelected ? 'open' : ''}">
-                    <div class="item-field">
-                        <div class="item-field-label">Code</div>
-                        <div class="item-field-value">${item.code || 'N/A'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Name</div>
-                        <div class="item-field-value">${item.name || 'N/A'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Batch</div>
-                        <div class="item-field-value">${item.batch || 'N/A'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Qty / UOM</div>
-                        <div class="item-field-value">${item.qty} ${item.uom}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Expiry</div>
-                        <div class="item-field-value">${item.expiry || 'N/A'}</div>
-                    </div>
+                <div class="item-field">
+                    <div class="item-field-label">Description/Product</div>
+                    <div class="item-field-value">${item.name || '(Not found)'}</div>
                 </div>
-            `;
-            container.appendChild(card);
-        });
-        
-        updateItemStats();
+                <div class="item-field">
+                    <div class="item-field-label">Batch/Lot No</div>
+                    <div class="item-field-value">${item.batch || '(Not found)'}</div>
+                </div>
+                <div class="item-field">
+                    <div class="item-field-label">Quantity</div>
+                    <div class="item-field-value">${item.qty} ${item.uom}</div>
+                </div>
+                <div class="item-field">
+                    <div class="item-field-label">Expiry Date</div>
+                    <div class="item-field-value">${item.expiry || '(Not found)'}</div>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+        document.getElementById('detectedCount').innerText = '1';
     }
     
-    function toggleItemSelection(idx) {
-        if (selectedItems.has(idx)) {
-            selectedItems.delete(idx);
-        } else {
-            selectedItems.add(idx);
-        }
-        renderDetectedItems();
-    }
-    
-    function selectAllItems() {
-        detectedItems.forEach((_, idx) => selectedItems.add(idx));
-        renderDetectedItems();
-    }
-    
-    function deselectAllItems() {
-        selectedItems.clear();
-        renderDetectedItems();
-    }
-    
-    function updateItemStats() {
-        document.getElementById('detectedCount').innerText = detectedItems.length;
-        document.getElementById('selectedCount').innerText = selectedItems.size;
-    }
-    
-    function addSelectedItems() {
-        if (selectedItems.size === 0) {
-            alert('Please select at least one item.');
+    function addExtractedItem() {
+        if (!currentExtractedItem) {
+            alert('No item to save. Please scan an image first.');
             return;
         }
         
-        selectedItems.forEach(idx => {
-            inventory.push(detectedItems[idx]);
-        });
+        if (!currentExtractedItem.name && !currentExtractedItem.code) {
+            alert('Could not extract description or code. Please check your label format or adjust configuration.');
+            return;
+        }
         
+        inventory.push(currentExtractedItem);
         localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
-        alert(`✅ Added ${selectedItems.size} items to inventory!`);
+        alert('✅ Item saved to inventory!');
         
         discardScan();
         renderTable();
     }
     
     function discardScan() {
-        detectedItems = [];
-        selectedItems.clear();
+        currentExtractedItem = null;
         document.getElementById('reviewSection').style.display = 'none';
         document.getElementById('rawLog').innerText = '';
-        document.getElementById('status').innerText = 'Ready to scan photo with multiple items.';
+        document.getElementById('status').innerText = 'Ready to scan item labels.';
     }
     
     document.getElementById('imageInput').addEventListener('change', function(e) {
@@ -722,7 +695,7 @@ Expiry Keywords: ${config.expiryKeywords}`;
             
             Tesseract.recognize(imageDataUrl, 'eng')
                 .then(({ data: { text } }) => {
-                    document.getElementById('status').innerText = '✅ Scan complete! Review items below.';
+                    document.getElementById('status').innerText = '✅ Scan complete! Extracting specific information...';
                     
                     let trimmedText = text.trim();
                     document.getElementById('rawLog').innerText = trimmedText || 'No readable text detected.';
@@ -732,18 +705,12 @@ Expiry Keywords: ${config.expiryKeywords}`;
                         return;
                     }
                     
-                    // Parse multiple items
-                    detectedItems = parseMultipleItems(trimmedText);
+                    // Extract ONLY the configured fields
+                    currentExtractedItem = extractSpecificFields(trimmedText);
                     
-                    if (detectedItems.length === 0) {
-                        alert('No items could be extracted. Please check your image or configure field extraction.');
-                        return;
-                    }
-                    
-                    selectedItems.clear();
-                    selectAllItems(); // Auto-select all
-                    renderDetectedItems();
+                    renderExtractedItem(currentExtractedItem);
                     document.getElementById('reviewSection').style.display = 'block';
+                    document.getElementById('status').innerText = '✅ Information extracted! Review and save.';
                 })
                 .catch(err => {
                     console.error('OCR Error:', err);
@@ -754,72 +721,6 @@ Expiry Keywords: ${config.expiryKeywords}`;
         
         reader.readAsDataURL(file);
     });
-    
-    function parseBatchInput() {
-        const input = document.getElementById('batchInput').value.trim();
-        if (!input) {
-            alert('Please enter item data.');
-            return;
-        }
-        
-        const lines = input.split('\n').filter(line => line.trim());
-        const batchItems = [];
-        
-        lines.forEach(line => {
-            const fields = line.split('|').map(f => f.trim());
-            if (fields.length >= 2) {
-                const item = {
-                    code: fields[0] || '',
-                    name: fields[1] || '',
-                    batch: fields[2] || '',
-                    qty: parseInt(fields[3]) || 1,
-                    uom: fields[4] || 'Pcs',
-                    expiry: fields[5] || '',
-                    receive: setTodayDate()
-                };
-                batchItems.push(item);
-            }
-        });
-        
-        if (batchItems.length === 0) {
-            alert('No valid items found. Use format: CODE|NAME|BATCH|QTY|UOM|EXPIRY');
-            return;
-        }
-        
-        // Show preview
-        const tbody = document.getElementById('batchPreviewBody');
-        tbody.innerHTML = '';
-        batchItems.forEach(item => {
-            const row = `<tr>
-                <td>${item.code || '-'}</td>
-                <td>${item.name || '-'}</td>
-                <td>${item.batch || '-'}</td>
-                <td>${item.qty}</td>
-                <td>${item.uom}</td>
-                <td>${item.expiry || '-'}</td>
-            </tr>`;
-            tbody.innerHTML += row;
-        });
-        
-        document.getElementById('batchReview').style.display = 'block';
-        document.getElementById('batchReview').batchItems = batchItems;
-    }
-    
-    function addBatchItems() {
-        const batchItems = document.getElementById('batchReview').batchItems;
-        if (!batchItems) {
-            alert('Please preview items first.');
-            return;
-        }
-        
-        inventory.push(...batchItems);
-        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
-        
-        alert(`✅ Added ${batchItems.length} items to inventory!`);
-        document.getElementById('batchInput').value = '';
-        document.getElementById('batchReview').style.display = 'none';
-        renderTable();
-    }
     
     function renderTable() {
         const tbody = document.getElementById('inventoryBody');
@@ -877,7 +778,7 @@ Expiry Keywords: ${config.expiryKeywords}`;
     }
     
     // Initialize
-    loadConfig();
+    loadConfiguration();
     renderTable();
 </script>
 </body>
