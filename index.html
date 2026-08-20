@@ -44,7 +44,6 @@
         input[type="file"] { display: none; }
         #status { font-weight: bold; color: #666; margin: 8px 0; text-align: center; font-size: 14px; }
         
-        /* Form grid layout */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -85,14 +84,12 @@
             font-size: 14px;
         }
         
-        /* Mobile responsive table */
         .table-wrapper { overflow-x: auto; margin-top: 15px; }
         table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 13px; }
         th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background: #f2f2f2; position: sticky; top: 0; }
         .delete-btn { color: #ff3b30; cursor: pointer; border: none; background: none; font-weight: bold; font-size: 16px; }
         
-        /* Debug log view to see raw scan output */
         .raw-output {
             background: #eee;
             padding: 8px;
@@ -110,7 +107,6 @@
 <div class="container">
     <h2>📦 Detailed Inventory Tracker</h2>
     
-    <!-- Camera Section -->
     <div class="upload-section">
         <label class="file-label">
             📷 Snap Label or Photo
@@ -119,11 +115,9 @@
         <div id="status">Ready to scan labels.</div>
     </div>
 
-    <!-- Raw text box to see what the camera captured -->
     <label style="font-size:11px; color:#777;">Raw Camera Text Captured:</label>
     <div id="rawLog" class="raw-output">No photo scanned yet. Real text from your photo will appear here.</div>
 
-    <!-- Data Input Form Fields -->
     <div class="form-grid">
         <div class="form-group">
             <label for="itemCode">1. Code / Ref ID:</label>
@@ -169,7 +163,6 @@
 
     <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
 
-    <!-- List Management -->
     <h3>Saved Inventory</h3>
     <button class="btn-export" onclick="exportToCSV()">📥 Export Data to Excel (CSV)</button>
     
@@ -195,7 +188,6 @@
 <script>
     let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
     
-    // Automatically set Receive Date to today's date on startup
     function setTodayDate() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('itemReceive').value = today;
@@ -204,52 +196,58 @@
     setTodayDate();
     renderTable();
 
-    // OCR scanning logic triggered by your phone camera
     document.getElementById('imageInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        const file = files[0];
 
-        document.getElementById('status').innerText = "🌀 Processing image... looking for text...";
-        document.getElementById('rawLog').innerText = "Scanning text pieces...";
+        document.getElementById('status').innerText = "🌀 Reading photo file details...";
+        document.getElementById('rawLog').innerText = "Processing phone image data...";
 
-        Tesseract.recognize(file, 'eng')
-            .then(({ data: { text } }) => {
-                document.getElementById('status').innerText = "✅ Scan complete! Review fields below.";
-                
-                // Keep raw lines visible for validation
-                document.getElementById('rawLog').innerText = text.trim() || "No text found at all.";
+        // UPGRADE: Use FileReader to convert image cleanly for the phone browser
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const imageDataUrl = event.target.result;
+            document.getElementById('status').innerText = "🌀 Scanning text... please wait 5-10 seconds...";
 
-                let cleanText = text.trim().replace(/\n+/g, ' ');
-                
-                // 1. Put everything into Description first as a safety backup
-                document.getElementById('itemName').value = cleanText;
+            Tesseract.recognize(imageDataUrl, 'eng')
+                .then(({ data: { text } }) => {
+                    document.getElementById('status').innerText = "✅ Scan complete! Review fields below.";
+                    
+                    let trimmedText = text.trim();
+                    document.getElementById('rawLog').innerText = trimmedText || "Scan completed, but could not detect readable letters. Try closer with better light.";
 
-                // Smart Filter: Try to extract a batch number if the label says "LOT" or "BATCH"
-                const batchMatch = text.match(/(?:batch|lot|b\.n\.|l\.n\.)[:#.\s]*([A-Z0-9-]+)/i);
-                if (batchMatch && batchMatch[1]) {
-                    document.getElementById('itemBatch').value = batchMatch[1];
-                }
+                    if (!trimmedText) return;
 
-                // Smart Filter: Try to extract an Expiry Date if the label says "EXP" or "EXPIRY"
-                const expMatch = text.match(/(?:exp|expiry|exp\.date)[:\s]*([0-9A-Za-z\/-]+)/i);
-                if (expMatch && expMatch[1]) {
-                    document.getElementById('itemExpiry').value = expMatch[1];
-                }
+                    let cleanLineText = trimmedText.replace(/\n+/g, ' ');
+                    document.getElementById('itemName').value = cleanLineText;
 
-                // Smart Filter: Auto select UOM if 'pack' or 'bottle' is printed anywhere
-                if (/pack/i.test(text)) {
-                    document.getElementById('itemUom').value = "Pack";
-                } else if (/bottle/i.test(text)) {
-                    document.getElementById('itemUom').value = "Bottle";
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById('status').innerText = "❌ Scanner failed. Please type details manually.";
-            });
+                    // Improved filters to catch data patterns
+                    const batchMatch = trimmedText.match(/(?:batch|lot|b\.n\.|l\.n\.|b\/n)[:#.\s]*([A-Z0-9-]+)/i);
+                    if (batchMatch && batchMatch[1]) {
+                        document.getElementById('itemBatch').value = batchMatch[1];
+                    }
+
+                    const expMatch = trimmedText.match(/(?:exp|expiry|exp\.date|best before)[:\s]*([0-9A-Za-z\/-]+)/i);
+                    if (expMatch && expMatch[1]) {
+                        document.getElementById('itemExpiry').value = expMatch[1];
+                    }
+
+                    if (/pack/i.test(trimmedText)) {
+                        document.getElementById('itemUom').value = "Pack";
+                    } else if (/bottle/i.test(trimmedText)) {
+                        document.getElementById('itemUom').value = "Bottle";
+                    }
+                })
+                .catch(err => {
+                    console.error("OCR Failure Error: ", err);
+                    document.getElementById('status').innerText = "❌ Scan error. Please type manually.";
+                });
+        };
+        
+        reader.readAsDataURL(file);
     });
 
-    // Save item entry to phone memory
     function addToInventory() {
         const code = document.getElementById('itemCode').value.trim();
         const name = document.getElementById('itemName').value.trim();
@@ -264,10 +262,9 @@
             return;
         }
 
-inventory.push({ code, name, batch, qty, uom, expiry, receive });
-localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+        inventory.push({ code, name, batch, qty, uom, expiry, receive });
 
-// Reset inputs for next scan
+localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
 document.getElementById('itemCode').value = "";
 document.getElementById('itemName').value = "";
 document.getElementById('itemBatch').value = "";
@@ -279,7 +276,6 @@ document.getElementById('status').innerText = "Ready to scan labels.";
 renderTable();
 }
 
-// Put data onto the screen table rows
 function renderTable() {
     const tbody = document.getElementById('inventoryBody');
     tbody.innerHTML = "";
@@ -306,7 +302,6 @@ function deleteItem(index) {
     }
 }
 
-// Download spreadsheet function
 function exportToCSV() {
     if (inventory.length === 0) {
         alert("Nothing to export yet!");
