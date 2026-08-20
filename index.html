@@ -15,7 +15,7 @@
             color: #333;
         }
         .container {
-            max-width: 600px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
             padding: 15px;
@@ -23,6 +23,8 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
         h2 { margin-top: 0; text-align: center; color: #007aff; font-size: 22px; }
+        h3 { color: #333; margin-top: 20px; border-bottom: 2px solid #007aff; padding-bottom: 8px; }
+        
         .upload-section {
             border: 2px dashed #007aff;
             padding: 15px;
@@ -44,6 +46,33 @@
         input[type="file"] { display: none; }
         #status { font-weight: bold; color: #666; margin: 8px 0; text-align: center; font-size: 14px; }
         
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            font-size: 14px;
+        }
+        .tab-btn.active {
+            border-bottom-color: #007aff;
+            color: #007aff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -53,13 +82,18 @@
         .form-group { display: flex; flex-direction: column; }
         .full-width { grid-column: span 2; }
         label { font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #555; }
-        input[type="text"], input[type="number"], select {
+        input[type="text"], input[type="number"], select, textarea {
             width: 100%;
             padding: 10px;
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 15px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
         }
         
         .btn-success {
@@ -72,7 +106,30 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            margin-bottom: 10px;
         }
+        .btn-success:hover { background: #2fa84e; }
+        
+        .btn-secondary {
+            width: 100%;
+            padding: 12px;
+            background: #5ac8fa;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .btn-secondary:hover { background: #34c759; }
+        
+        .btn-danger {
+            background: #ff3b30;
+            width: 100%;
+        }
+        .btn-danger:hover { background: #d63026; }
+        
         .btn-export {
             background: #ff9500;
             color: white;
@@ -84,244 +141,726 @@
             font-size: 14px;
         }
         
-        .table-wrapper { overflow-x: auto; margin-top: 15px; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 13px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f2f2f2; position: sticky; top: 0; }
-        .delete-btn { color: #ff3b30; cursor: pointer; border: none; background: none; font-weight: bold; font-size: 16px; }
-        
         .raw-output {
             background: #eee;
             padding: 8px;
             border-radius: 4px;
             font-size: 11px;
-            max-height: 60px;
+            max-height: 100px;
             overflow-y: auto;
             margin-bottom: 15px;
             color: #444;
+            font-family: monospace;
+        }
+        
+        .review-section {
+            background: #fffbea;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .detected-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .item-card {
+            background: #f9f9f9;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 13px;
+            position: relative;
+        }
+        
+        .item-card.selected {
+            border-color: #007aff;
+            background: #f0f7ff;
+        }
+        
+        .item-card-header {
+            font-weight: bold;
+            color: #007aff;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .item-card-toggle {
+            width: 20px;
+            height: 20px;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .item-card-body {
+            display: none;
+        }
+        
+        .item-card-body.open {
+            display: block;
+        }
+        
+        .item-field {
+            margin-bottom: 6px;
+            padding: 4px;
+            background: white;
+            border-radius: 4px;
+        }
+        .item-field-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 12px;
+        }
+        .item-field-value {
+            color: #333;
+            margin-top: 2px;
+        }
+        
+        .table-wrapper { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 13px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; position: sticky; top: 0; }
+        .delete-btn { color: #ff3b30; cursor: pointer; border: none; background: none; font-weight: bold; font-size: 16px; }
+        .delete-btn:hover { font-size: 18px; }
+        
+        .stats {
+            background: #f0f7ff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        
+        .stats-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        
+        .stats-value {
+            font-weight: bold;
+            color: #007aff;
+            font-size: 16px;
+        }
+        
+        .config-section {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        
+        .config-group {
+            margin-bottom: 12px;
+        }
+        
+        .error-message {
+            background: #ffebee;
+            border: 1px solid #ff3b30;
+            color: #d63026;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .success-message {
+            background: #e8f5e9;
+            border: 1px solid #34c759;
+            color: #2fa84e;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .buttons-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📦 Detailed Inventory Tracker</h2>
+    <h2>📦 Advanced Inventory Scanner</h2>
     
-    <div class="upload-section">
-        <label class="file-label">
-            📷 Snap Label or Photo
-            <input type="file" id="imageInput" accept="image/*">
-        </label>
-        <div id="status">Ready to scan labels.</div>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('scan-tab')">📷 Scan & Review</button>
+        <button class="tab-btn" onclick="switchTab('batch-tab')">📝 Batch Input</button>
+        <button class="tab-btn" onclick="switchTab('inventory-tab')">📊 Inventory List</button>
+        <button class="tab-btn" onclick="switchTab('config-tab')">⚙️ Settings</button>
     </div>
 
-    <label style="font-size:11px; color:#777;">Raw Camera Text Captured:</label>
-    <div id="rawLog" class="raw-output">No photo scanned yet. Real text from your photo will appear here.</div>
+    <!-- SCAN & REVIEW TAB -->
+    <div id="scan-tab" class="tab-content active">
+        <div class="upload-section">
+            <label class="file-label">
+                📷 Scan Multiple Items Photo
+                <input type="file" id="imageInput" accept="image/*">
+            </label>
+            <div id="status">Ready to scan photo with multiple items.</div>
+        </div>
 
-    <div class="form-grid">
-        <div class="form-group">
-            <label for="itemCode">1. Code / Ref ID:</label>
-            <input type="text" id="itemCode" placeholder="e.g. SKU102">
+        <label style="font-size:11px; color:#777;">Raw OCR Text Captured:</label>
+        <div id="rawLog" class="raw-output">No photo scanned yet. Extracted text will appear here.</div>
+
+        <div id="reviewSection" class="review-section" style="display: none;">
+            <h3>🔍 Review Detected Items</h3>
+            <div class="stats">
+                <div class="stats-item">Items Detected: <span class="stats-value" id="detectedCount">0</span></div>
+                <div class="stats-item">Items Selected: <span class="stats-value" id="selectedCount">0</span></div>
+            </div>
+            
+            <div class="detected-items" id="detectedItems"></div>
+            
+            <div class="buttons-row">
+                <button class="btn-secondary" onclick="selectAllItems()">✓ Select All</button>
+                <button class="btn-secondary" onclick="deselectAllItems()">✗ Deselect All</button>
+            </div>
+            
+            <button class="btn-success" onclick="addSelectedItems()">✅ Add Selected Items to Inventory</button>
+            <button class="btn-danger" onclick="discardScan()">❌ Clear & Rescan</button>
+        </div>
+    </div>
+
+    <!-- BATCH INPUT TAB -->
+    <div id="batch-tab" class="tab-content">
+        <h3>📝 Bulk Add Items</h3>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+            Paste structured item data. Format each line as: <code>CODE|NAME|BATCH|QTY|UOM|EXPIRY</code>
+        </p>
+        
+        <div class="form-group full-width">
+            <label for="batchInput">Paste Item Data (one item per line):</label>
+            <textarea id="batchInput" placeholder="SKU001|Vitamin C Tablets|B2401|100|Pcs|2025-12-31&#10;SKU002|Cough Syrup|B2402|50|Bottle|2024-06-15"></textarea>
         </div>
         
-        <div class="form-group">
-            <label for="itemBatch">3. Batch / Lot No:</label>
-            <input type="text" id="itemBatch" placeholder="e.g. B2409">
+        <div class="buttons-row">
+            <button class="btn-secondary" onclick="parseBatchInput()">🔍 Preview Items</button>
+            <button class="btn-success" onclick="addBatchItems()">✅ Add All Items</button>
         </div>
-
-        <div class="form-group full-width">
-            <label for="itemName">2. Description / Item Name:</label>
-            <input type="text" id="itemName" placeholder="Product name or full scanned text details">
-        </div>
-
-        <div class="form-group">
-            <label for="itemQty">4. Quantity:</label>
-            <input type="number" id="itemQty" value="1">
-        </div>
-
-        <div class="form-group">
-            <label for="itemUom">Unit (UOM):</label>
-            <select id="itemUom">
-                <option value="Bottle">Bottle</option>
-                <option value="Pack">Pack</option>
-                <option value="Pcs">Pcs</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="itemExpiry">5. Expiry Date:</label>
-            <input type="text" id="itemExpiry" placeholder="YYYY-MM-DD or text">
-        </div>
-
-        <div class="form-group">
-            <label for="itemReceive">6. Receive Date:</label>
-            <input type="text" id="itemReceive" placeholder="Today's date automatically sets">
+        
+        <div id="batchReview" style="display: none; margin-top: 15px;">
+            <h4>Preview:</h4>
+            <div class="table-wrapper">
+                <table id="batchPreviewTable">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Description</th>
+                            <th>Batch/Lot</th>
+                            <th>Qty</th>
+                            <th>UOM</th>
+                            <th>Expiry</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchPreviewBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <button class="btn-success" onclick="addToInventory()">Add Item to List</button>
+    <!-- INVENTORY LIST TAB -->
+    <div id="inventory-tab" class="tab-content">
+        <h3>📊 Saved Inventory</h3>
+        <div class="stats">
+            <div class="stats-item">Total Items: <span class="stats-value" id="totalItems">0</span></div>
+            <div class="stats-item">Total Units: <span class="stats-value" id="totalUnits">0</span></div>
+        </div>
+        <button class="btn-export" onclick="exportToCSV()">📥 Export to CSV</button>
+        
+        <div class="table-wrapper">
+            <table id="inventoryTable">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Description</th>
+                        <th>Batch/Lot</th>
+                        <th>Qty</th>
+                        <th>UOM</th>
+                        <th>Expiry</th>
+                        <th>Received</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+            </table>
+        </div>
+    </div>
 
-    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-
-    <h3>Saved Inventory</h3>
-    <button class="btn-export" onclick="exportToCSV()">📥 Export Data to Excel (CSV)</button>
-    
-    <div class="table-wrapper">
-        <table id="inventoryTable">
-            <thead>
-                <tr>
-                    <th>Code</th>
-                    <th>Description</th>
-                    <th>Batch/Lot</th>
-                    <th>Qty</th>
-                    <th>UOM</th>
-                    <th>Expiry</th>
-                    <th>Received</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="inventoryBody"></tbody>
-        </table>
+    <!-- CONFIG TAB -->
+    <div id="config-tab" class="tab-content">
+        <h3>⚙️ Scan Configuration</h3>
+        
+        <div class="config-section">
+            <div class="config-group">
+                <label style="font-weight: bold; margin-bottom: 8px; display: block;">Item Separator Pattern</label>
+                <p style="margin: 5px 0; color: #666; font-size: 12px;">How are items separated in your photos?</p>
+                <select id="separatorType" style="margin-bottom: 10px;">
+                    <option value="newline">New Line (items on separate lines)</option>
+                    <option value="pipe">Pipe Delimiter | (e.g., SKU|Name|Batch)</option>
+                    <option value="comma">Comma Delimiter , (e.g., SKU,Name,Batch)</option>
+                    <option value="tab">Tab Delimiter (spreadsheet style)</option>
+                    <option value="auto">Auto-Detect (recommend)</option>
+                </select>
+            </div>
+            
+            <div class="config-group">
+                <label style="font-weight: bold; margin-bottom: 8px; display: block;">Field Order</label>
+                <p style="margin: 5px 0; color: #666; font-size: 12px;">Which order do fields appear in your photos? (Left to Right)</p>
+                <select id="fieldOrder" style="margin-bottom: 10px;">
+                    <option value="code-name-batch-qty-uom-expiry">Code | Name | Batch | Qty | UOM | Expiry</option>
+                    <option value="name-code-batch-expiry-qty">Name | Code | Batch | Expiry | Qty</option>
+                    <option value="code-batch-name-expiry">Code | Batch | Name | Expiry</option>
+                    <option value="name-batch-code-expiry">Name | Batch | Code | Expiry</option>
+                    <option value="custom">Custom (I'll specify)</option>
+                </select>
+            </div>
+            
+            <div class="config-group">
+                <label style="font-weight: bold; margin-bottom: 8px; display: block;">Custom Field Labels</label>
+                <p style="margin: 5px 0; color: #666; font-size: 12px;">Enter keywords that identify each field (e.g., "SKU, Code" for product code)</p>
+                <input type="text" id="codeKeywords" value="SKU, code, ref, id" placeholder="Code identifiers" style="margin-bottom: 8px;">
+                <input type="text" id="nameKeywords" value="name, description, product, item" placeholder="Name identifiers" style="margin-bottom: 8px;">
+                <input type="text" id="batchKeywords" value="batch, lot, b.n., b/n" placeholder="Batch identifiers" style="margin-bottom: 8px;">
+                <input type="text" id="expiryKeywords" value="exp, expiry, expires, best before, exp.date" placeholder="Expiry identifiers">
+            </div>
+            
+            <button class="btn-secondary" onclick="saveConfig()">💾 Save Settings</button>
+        </div>
+        
+        <div class="config-section">
+            <h4>Current Configuration:</h4>
+            <pre id="configDisplay" style="background: white; padding: 10px; border-radius: 4px; font-size: 11px; overflow-x: auto;"></pre>
+        </div>
     </div>
 </div>
 
 <script>
     let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
+    let detectedItems = [];
+    let selectedItems = new Set();
+    let config = JSON.parse(localStorage.getItem('scanner_config')) || {
+        separatorType: 'auto',
+        fieldOrder: 'code-name-batch-qty-uom-expiry',
+        codeKeywords: 'SKU, code, ref, id',
+        nameKeywords: 'name, description, product, item',
+        batchKeywords: 'batch, lot, b.n., b/n',
+        expiryKeywords: 'exp, expiry, expires, best before, exp.date'
+    };
+    
+    function switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected tab
+        document.getElementById(tabName).classList.add('active');
+        event.target.classList.add('active');
+        
+        // Update inventory stats when switching to inventory tab
+        if (tabName === 'inventory-tab') {
+            updateInventoryStats();
+        }
+        
+        // Update config display
+        if (tabName === 'config-tab') {
+            loadConfigDisplay();
+        }
+    }
     
     function setTodayDate() {
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('itemReceive').value = today;
+        return today;
     }
     
-    setTodayDate();
-    renderTable();
-
+    function loadConfigDisplay() {
+        const display = `Separator: ${config.separatorType}
+Field Order: ${config.fieldOrder}
+Code Keywords: ${config.codeKeywords}
+Name Keywords: ${config.nameKeywords}
+Batch Keywords: ${config.batchKeywords}
+Expiry Keywords: ${config.expiryKeywords}`;
+        document.getElementById('configDisplay').innerText = display;
+    }
+    
+    function saveConfig() {
+        config = {
+            separatorType: document.getElementById('separatorType').value,
+            fieldOrder: document.getElementById('fieldOrder').value,
+            codeKeywords: document.getElementById('codeKeywords').value,
+            nameKeywords: document.getElementById('nameKeywords').value,
+            batchKeywords: document.getElementById('batchKeywords').value,
+            expiryKeywords: document.getElementById('expiryKeywords').value
+        };
+        localStorage.setItem('scanner_config', JSON.stringify(config));
+        alert('✅ Settings saved!');
+        loadConfigDisplay();
+    }
+    
+    function loadConfig() {
+        document.getElementById('separatorType').value = config.separatorType;
+        document.getElementById('fieldOrder').value = config.fieldOrder;
+        document.getElementById('codeKeywords').value = config.codeKeywords;
+        document.getElementById('nameKeywords').value = config.nameKeywords;
+        document.getElementById('batchKeywords').value = config.batchKeywords;
+        document.getElementById('expiryKeywords').value = config.expiryKeywords;
+        loadConfigDisplay();
+    }
+    
+    // Parse items from horizontally-read text
+    function parseMultipleItems(text) {
+        const items = [];
+        const lines = text.split('\n').filter(line => line.trim().length > 0);
+        
+        // Determine separator
+        let separator = config.separatorType;
+        if (separator === 'auto') {
+            if (text.includes('|')) separator = 'pipe';
+            else if (text.includes(',')) separator = 'comma';
+            else if (text.includes('\t')) separator = 'tab';
+            else separator = 'newline';
+        }
+        
+        let itemsArray = [];
+        if (separator === 'pipe' || separator === 'comma') {
+            const sep = separator === 'pipe' ? '|' : ',';
+            itemsArray = text.split('\n').map(line => line.split(sep).map(f => f.trim()));
+        } else if (separator === 'tab') {
+            itemsArray = text.split('\n').map(line => line.split('\t').map(f => f.trim()));
+        } else {
+            // Newline separator - each line is one item with fields separated by spaces or keywords
+            itemsArray = lines.map(line => [line]);
+        }
+        
+        itemsArray.forEach((fields, idx) => {
+            if (fields.every(f => !f)) return; // Skip empty lines
+            
+            const item = parseItemFields(fields.join(' '));
+            if (item.name || item.code) {
+                item.index = idx;
+                items.push(item);
+            }
+        });
+        
+        return items;
+    }
+    
+    function parseItemFields(text) {
+        const item = {
+            code: '',
+            name: '',
+            batch: '',
+            qty: 1,
+            uom: 'Pcs',
+            expiry: '',
+            receive: setTodayDate()
+        };
+        
+        // Extract Code
+        const codeKeywords = config.codeKeywords.split(',').map(k => k.trim());
+        const codePattern = new RegExp(`(?:${codeKeywords.join('|')})[:\\s#.]*([A-Z0-9\\-_]+)`, 'i');
+        const codeMatch = text.match(codePattern);
+        if (codeMatch) item.code = codeMatch[1];
+        
+        // Extract Name
+        const nameKeywords = config.nameKeywords.split(',').map(k => k.trim());
+        const namePattern = new RegExp(`(?:${nameKeywords.join('|')})[:\\s#.]*([^\\n|,]*?)(?=(?:${codeKeywords.join('|')}|${nameKeywords.join('|')}|batch|lot|exp|qty|quantity|uom)|$)`, 'i');
+        const nameMatch = text.match(namePattern);
+        if (nameMatch && nameMatch[1]) item.name = nameMatch[1].trim();
+        
+        // Extract Batch
+        const batchKeywords = config.batchKeywords.split(',').map(k => k.trim());
+        const batchPattern = new RegExp(`(?:${batchKeywords.join('|')})[:\\s#.]*([A-Z0-9\\-]+)`, 'i');
+        const batchMatch = text.match(batchPattern);
+        if (batchMatch) item.batch = batchMatch[1];
+        
+        // Extract Quantity
+        const qtyMatch = text.match(/(?:qty|quantity)[:\\s#.]*(\d+)/i);
+        if (qtyMatch) item.qty = parseInt(qtyMatch[1]) || 1;
+        
+        // Auto-detect Unit
+        if (/pack/i.test(text)) item.uom = 'Pack';
+        else if (/bottle/i.test(text)) item.uom = 'Bottle';
+        else if (/pcs|piece|pc/i.test(text)) item.uom = 'Pcs';
+        
+        // Extract Expiry
+        const expiryKeywords = config.expiryKeywords.split(',').map(k => k.trim());
+        const expPattern = new RegExp(`(?:${expiryKeywords.join('|')})[:\\s]*([0-9A-Za-z\\/\\-]+)`, 'i');
+        const expMatch = text.match(expPattern);
+        if (expMatch) item.expiry = expMatch[1];
+        
+        // Fallback: if no name extracted, use first 50 chars as name
+        if (!item.name && text.length > 0) {
+            item.name = text.substring(0, 60).replace(/[^\w\s]/g, ' ').trim();
+        }
+        
+        return item;
+    }
+    
+    function renderDetectedItems() {
+        const container = document.getElementById('detectedItems');
+        container.innerHTML = '';
+        
+        detectedItems.forEach((item, idx) => {
+            const isSelected = selectedItems.has(idx);
+            const card = document.createElement('div');
+            card.className = `item-card ${isSelected ? 'selected' : ''}`;
+            card.innerHTML = `
+                <div class="item-card-header">
+                    <span>${item.code ? `[${item.code}]` : ''} ${item.name.substring(0, 25)}${item.name.length > 25 ? '...' : ''}</span>
+                    <button class="item-card-toggle" onclick="toggleItemSelection(${idx})">${isSelected ? '✓' : '+'}</button>
+                </div>
+                <div class="item-card-body ${isSelected ? 'open' : ''}">
+                    <div class="item-field">
+                        <div class="item-field-label">Code</div>
+                        <div class="item-field-value">${item.code || 'N/A'}</div>
+                    </div>
+                    <div class="item-field">
+                        <div class="item-field-label">Name</div>
+                        <div class="item-field-value">${item.name || 'N/A'}</div>
+                    </div>
+                    <div class="item-field">
+                        <div class="item-field-label">Batch</div>
+                        <div class="item-field-value">${item.batch || 'N/A'}</div>
+                    </div>
+                    <div class="item-field">
+                        <div class="item-field-label">Qty / UOM</div>
+                        <div class="item-field-value">${item.qty} ${item.uom}</div>
+                    </div>
+                    <div class="item-field">
+                        <div class="item-field-label">Expiry</div>
+                        <div class="item-field-value">${item.expiry || 'N/A'}</div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        
+        updateItemStats();
+    }
+    
+    function toggleItemSelection(idx) {
+        if (selectedItems.has(idx)) {
+            selectedItems.delete(idx);
+        } else {
+            selectedItems.add(idx);
+        }
+        renderDetectedItems();
+    }
+    
+    function selectAllItems() {
+        detectedItems.forEach((_, idx) => selectedItems.add(idx));
+        renderDetectedItems();
+    }
+    
+    function deselectAllItems() {
+        selectedItems.clear();
+        renderDetectedItems();
+    }
+    
+    function updateItemStats() {
+        document.getElementById('detectedCount').innerText = detectedItems.length;
+        document.getElementById('selectedCount').innerText = selectedItems.size;
+    }
+    
+    function addSelectedItems() {
+        if (selectedItems.size === 0) {
+            alert('Please select at least one item.');
+            return;
+        }
+        
+        selectedItems.forEach(idx => {
+            inventory.push(detectedItems[idx]);
+        });
+        
+        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+        alert(`✅ Added ${selectedItems.size} items to inventory!`);
+        
+        discardScan();
+        renderTable();
+    }
+    
+    function discardScan() {
+        detectedItems = [];
+        selectedItems.clear();
+        document.getElementById('reviewSection').style.display = 'none';
+        document.getElementById('rawLog').innerText = '';
+        document.getElementById('status').innerText = 'Ready to scan photo with multiple items.';
+    }
+    
     document.getElementById('imageInput').addEventListener('change', function(e) {
         const files = e.target.files;
         if (!files || files.length === 0) return;
         
         const file = files[0];
-
-        document.getElementById('status').innerText = "🌀 Reading photo file details...";
-        document.getElementById('rawLog').innerText = "Processing phone image data...";
-
+        document.getElementById('status').innerText = '🌀 Reading photo...';
+        document.getElementById('rawLog').innerText = 'Processing image...';
+        
         const reader = new FileReader();
         reader.onload = function(event) {
             const imageDataUrl = event.target.result;
-            document.getElementById('status').innerText = "🌀 Scanning text... please wait 5-10 seconds...";
-
+            document.getElementById('status').innerText = '🌀 Scanning text... please wait 5-15 seconds...';
+            
             Tesseract.recognize(imageDataUrl, 'eng')
                 .then(({ data: { text } }) => {
-                    document.getElementById('status').innerText = "✅ Scan complete! Review fields below.";
+                    document.getElementById('status').innerText = '✅ Scan complete! Review items below.';
                     
                     let trimmedText = text.trim();
-                    document.getElementById('rawLog').innerText = trimmedText || "Scan completed, but could not detect readable letters. Try closer with better light.";
-
-                    if (!trimmedText) return;
-
-                    // Full scanned text goes to Description field
-                    let cleanLineText = trimmedText.replace(/\n+/g, ' ');
-                    document.getElementById('itemName').value = cleanLineText;
-
-                    // Enhanced regex patterns for better extraction
+                    document.getElementById('rawLog').innerText = trimmedText || 'No readable text detected.';
                     
-                    // Extract SKU/Code - look for patterns like "SKU123", "CODE:ABC"
-                    const codeMatch = trimmedText.match(/(?:sku|code|ref|id)[:\s#.]*([A-Z0-9\-_]+)/i);
-                    if (codeMatch && codeMatch[1]) {
-                        document.getElementById('itemCode').value = codeMatch[1];
+                    if (!trimmedText) {
+                        alert('Could not read any text from the image. Try with better lighting.');
+                        return;
                     }
-
-                    // Extract Batch/Lot Number - improved patterns
-                    const batchMatch = trimmedText.match(/(?:batch|lot|b\.n\.|l\.n\.|b\/n|batch\s*no|lot\s*no)[:\s#.]*([A-Z0-9\-]+)/i);
-                    if (batchMatch && batchMatch[1]) {
-                        document.getElementById('itemBatch').value = batchMatch[1];
+                    
+                    // Parse multiple items
+                    detectedItems = parseMultipleItems(trimmedText);
+                    
+                    if (detectedItems.length === 0) {
+                        alert('No items could be extracted. Please check your image or configure field extraction.');
+                        return;
                     }
-
-                    // Extract Expiry Date - more flexible matching
-                    const expMatch = trimmedText.match(/(?:exp|expiry|exp\.date|best before|expires?)[:\s]*([0-9A-Za-z\/-]+)/i);
-                    if (expMatch && expMatch[1]) {
-                        document.getElementById('itemExpiry').value = expMatch[1];
-                    }
-
-                    // Auto-detect Unit type
-                    if (/pack/i.test(trimmedText)) {
-                        document.getElementById('itemUom').value = "Pack";
-                    } else if (/bottle/i.test(trimmedText)) {
-                        document.getElementById('itemUom').value = "Bottle";
-                    } else if (/pcs|piece|pc/i.test(trimmedText)) {
-                        document.getElementById('itemUom').value = "Pcs";
-                    }
+                    
+                    selectedItems.clear();
+                    selectAllItems(); // Auto-select all
+                    renderDetectedItems();
+                    document.getElementById('reviewSection').style.display = 'block';
                 })
                 .catch(err => {
-                    console.error("OCR Failure Error: ", err);
-                    document.getElementById('status').innerText = "❌ Scan error. Please type manually.";
-                    document.getElementById('rawLog').innerText = "Error: " + err.message;
+                    console.error('OCR Error:', err);
+                    document.getElementById('status').innerText = '❌ Scan error. Please try again.';
+                    document.getElementById('rawLog').innerText = 'Error: ' + err.message;
                 });
         };
         
         reader.readAsDataURL(file);
     });
-
-    function addToInventory() {
-        const code = document.getElementById('itemCode').value.trim();
-        const name = document.getElementById('itemName').value.trim();
-        const batch = document.getElementById('itemBatch').value.trim();
-        const qty = parseInt(document.getElementById('itemQty').value) || 1;
-        const uom = document.getElementById('itemUom').value;
-        const expiry = document.getElementById('itemExpiry').value.trim();
-        const receive = document.getElementById('itemReceive').value.trim();
-
-        if (!name && !code) {
-            alert("Please input at least a Code or a Description before saving.");
+    
+    function parseBatchInput() {
+        const input = document.getElementById('batchInput').value.trim();
+        if (!input) {
+            alert('Please enter item data.');
             return;
         }
-
-        inventory.push({ code, name, batch, qty, uom, expiry, receive });
-        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
         
-        document.getElementById('itemCode').value = "";
-        document.getElementById('itemName').value = "";
-        document.getElementById('itemBatch').value = "";
-        document.getElementById('itemQty').value = "1";
-        document.getElementById('itemUom').value = "Bottle";
-        document.getElementById('itemExpiry').value = "";
-        setTodayDate();
-        document.getElementById('status').innerText = "Ready to scan labels.";
-        renderTable();
-    }
-
-    function renderTable() {
-        const tbody = document.getElementById('inventoryBody');
-        tbody.innerHTML = "";
-        inventory.forEach((item, index) => {
-            const row = `<tr> 
-                <td><b>${item.code || '-'}</b></td> 
-                <td>${item.name || '-'}</td> 
-                <td>${item.batch || '-'}</td> 
-                <td>${item.qty}</td> 
-                <td>${item.uom}</td> 
-                <td>${item.expiry || '-'}</td> 
-                <td>${item.receive || '-'}</td> 
-                <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td> 
+        const lines = input.split('\n').filter(line => line.trim());
+        const batchItems = [];
+        
+        lines.forEach(line => {
+            const fields = line.split('|').map(f => f.trim());
+            if (fields.length >= 2) {
+                const item = {
+                    code: fields[0] || '',
+                    name: fields[1] || '',
+                    batch: fields[2] || '',
+                    qty: parseInt(fields[3]) || 1,
+                    uom: fields[4] || 'Pcs',
+                    expiry: fields[5] || '',
+                    receive: setTodayDate()
+                };
+                batchItems.push(item);
+            }
+        });
+        
+        if (batchItems.length === 0) {
+            alert('No valid items found. Use format: CODE|NAME|BATCH|QTY|UOM|EXPIRY');
+            return;
+        }
+        
+        // Show preview
+        const tbody = document.getElementById('batchPreviewBody');
+        tbody.innerHTML = '';
+        batchItems.forEach(item => {
+            const row = `<tr>
+                <td>${item.code || '-'}</td>
+                <td>${item.name || '-'}</td>
+                <td>${item.batch || '-'}</td>
+                <td>${item.qty}</td>
+                <td>${item.uom}</td>
+                <td>${item.expiry || '-'}</td>
             </tr>`;
             tbody.innerHTML += row;
         });
+        
+        document.getElementById('batchReview').style.display = 'block';
+        document.getElementById('batchReview').batchItems = batchItems;
     }
-
+    
+    function addBatchItems() {
+        const batchItems = document.getElementById('batchReview').batchItems;
+        if (!batchItems) {
+            alert('Please preview items first.');
+            return;
+        }
+        
+        inventory.push(...batchItems);
+        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+        
+        alert(`✅ Added ${batchItems.length} items to inventory!`);
+        document.getElementById('batchInput').value = '';
+        document.getElementById('batchReview').style.display = 'none';
+        renderTable();
+    }
+    
+    function renderTable() {
+        const tbody = document.getElementById('inventoryBody');
+        tbody.innerHTML = '';
+        inventory.forEach((item, index) => {
+            const row = `<tr>
+                <td><b>${item.code || '-'}</b></td>
+                <td>${item.name || '-'}</td>
+                <td>${item.batch || '-'}</td>
+                <td>${item.qty}</td>
+                <td>${item.uom}</td>
+                <td>${item.expiry || '-'}</td>
+                <td>${item.receive || '-'}</td>
+                <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+        updateInventoryStats();
+    }
+    
+    function updateInventoryStats() {
+        const totalItems = inventory.length;
+        const totalUnits = inventory.reduce((sum, item) => sum + (item.qty || 0), 0);
+        document.getElementById('totalItems').innerText = totalItems;
+        document.getElementById('totalUnits').innerText = totalUnits;
+    }
+    
     function deleteItem(index) {
-        if(confirm("Delete this entry?")) {
+        if(confirm('Delete this entry?')) {
             inventory.splice(index, 1);
             localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
             renderTable();
         }
     }
-
+    
     function exportToCSV() {
         if (inventory.length === 0) {
-            alert("Nothing to export yet!");
+            alert('Nothing to export yet!');
             return;
         }
-        let csvContent = "data:text/csv;charset=utf-8,Code/Ref ID,Description/Item Name,Batch or Lot No,Quantity,UOM,Expiry Date,Receive Date\n";
+        let csvContent = 'data:text/csv;charset=utf-8,Code/Ref ID,Description/Item Name,Batch or Lot No,Quantity,UOM,Expiry Date,Receive Date\n';
         inventory.forEach(item => {
             let safeName = (item.name || '').replace(/"/g, '""');
             let safeCode = (item.code || '').replace(/"/g, '""');
@@ -329,13 +868,17 @@
             csvContent += `"${safeCode}","${safeName}","${safeBatch}",${item.qty},"${item.uom}","${item.expiry}","${item.receive}"\n`;
         });
         const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "inventory_report.csv");
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', 'inventory_report.csv');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
+    
+    // Initialize
+    loadConfig();
+    renderTable();
 </script>
 </body>
 </html>
