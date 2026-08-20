@@ -514,37 +514,45 @@
     }
     
     function loadConfigDisplay() {
-        const display = `Code Column Headers: ${config.codeHeader}
-Description Column Headers: ${config.nameHeader}
-Batch Column Headers: ${config.batchHeader}
-Expiry Column Headers: ${config.expiryHeader}
-Quantity Column Headers: ${config.qtyHeader}
-UOM Column Headers: ${config.uomHeader}`;
+        const display = `Code Column Headers: ${config.codeHeader || 'Not set'}
+Description Column Headers: ${config.nameHeader || 'Not set'}
+Batch Column Headers: ${config.batchHeader || 'Not set'}
+Expiry Column Headers: ${config.expiryHeader || 'Not set'}
+Quantity Column Headers: ${config.qtyHeader || 'Not set'}
+UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         document.getElementById('configDisplay').innerText = display;
     }
     
     function loadConfiguration() {
-        document.getElementById('codeHeader').value = config.codeHeader;
-        document.getElementById('nameHeader').value = config.nameHeader;
-        document.getElementById('batchHeader').value = config.batchHeader;
-        document.getElementById('expiryHeader').value = config.expiryHeader;
-        document.getElementById('qtyHeader').value = config.qtyHeader;
-        document.getElementById('uomHeader').value = config.uomHeader;
+        if (document.getElementById('codeHeader')) {
+            document.getElementById('codeHeader').value = config.codeHeader || '';
+            document.getElementById('nameHeader').value = config.nameHeader || '';
+            document.getElementById('batchHeader').value = config.batchHeader || '';
+            document.getElementById('expiryHeader').value = config.expiryHeader || '';
+            document.getElementById('qtyHeader').value = config.qtyHeader || '';
+            document.getElementById('uomHeader').value = config.uomHeader || '';
+        }
         loadConfigDisplay();
     }
     
     function saveConfiguration() {
         config = {
-            codeHeader: document.getElementById('codeHeader').value,
-            nameHeader: document.getElementById('nameHeader').value,
-            batchHeader: document.getElementById('batchHeader').value,
-            expiryHeader: document.getElementById('expiryHeader').value,
-            qtyHeader: document.getElementById('qtyHeader').value,
-            uomHeader: document.getElementById('uomHeader').value
+            codeHeader: document.getElementById('codeHeader').value || 'CODE',
+            nameHeader: document.getElementById('nameHeader').value || 'DESCRIPTION',
+            batchHeader: document.getElementById('batchHeader').value || 'BATCH NO',
+            expiryHeader: document.getElementById('expiryHeader').value || 'EXPIRY DATE',
+            qtyHeader: document.getElementById('qtyHeader').value || 'QTY',
+            uomHeader: document.getElementById('uomHeader').value || 'UOM'
         };
         localStorage.setItem('scanner_config', JSON.stringify(config));
         alert('✅ Configuration saved! Column headers are now set.');
         loadConfigDisplay();
+    }
+    
+    // Safe split function with default value
+    function safeHeaderSplit(str, defaultValue = '') {
+        if (!str) return [defaultValue];
+        return str.split(',').map(h => (h || defaultValue).trim()).filter(h => h.length > 0);
     }
     
     // Parse table/list format - detect column positions and extract multiple items
@@ -560,7 +568,7 @@ UOM Column Headers: ${config.uomHeader}`;
         // Find header line - contains column names
         let headerLineIndex = -1;
         let headerLine = '';
-        const codeHeaders = config.codeHeader.split(',').map(h => h.trim().toUpperCase());
+        const codeHeaders = safeHeaderSplit(config.codeHeader, 'CODE');
         
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
             const upperLine = lines[i].toUpperCase();
@@ -602,21 +610,23 @@ UOM Column Headers: ${config.uomHeader}`;
     function detectColumns(headerLine) {
         const columns = {};
         
-        // Keywords for each column type
-        const codeKeywords = config.codeHeader.split(',').map(h => h.trim().toUpperCase());
-        const nameKeywords = config.nameHeader.split(',').map(h => h.trim().toUpperCase());
-        const batchKeywords = config.batchHeader.split(',').map(h => h.trim().toUpperCase());
-        const expiryKeywords = config.expiryHeader.split(',').map(h => h.trim().toUpperCase());
-        const qtyKeywords = config.qtyHeader.split(',').map(h => h.trim().toUpperCase());
-        const uomKeywords = config.uomHeader.split(',').map(h => h.trim().toUpperCase());
+        // Keywords for each column type - use safe split
+        const codeKeywords = safeHeaderSplit(config.codeHeader, 'CODE');
+        const nameKeywords = safeHeaderSplit(config.nameHeader, 'DESCRIPTION');
+        const batchKeywords = safeHeaderSplit(config.batchHeader, 'BATCH NO');
+        const expiryKeywords = safeHeaderSplit(config.expiryHeader, 'EXPIRY DATE');
+        const qtyKeywords = safeHeaderSplit(config.qtyHeader, 'QTY');
+        const uomKeywords = safeHeaderSplit(config.uomHeader, 'UOM');
         
         const upperHeader = headerLine.toUpperCase();
         
         // Find position of each column type
         const findPosition = (keywords) => {
             for (let kw of keywords) {
-                const pos = upperHeader.indexOf(kw);
-                if (pos !== -1) return pos;
+                if (kw) {
+                    const pos = upperHeader.indexOf(kw);
+                    if (pos !== -1) return pos;
+                }
             }
             return -1;
         };
@@ -659,7 +669,7 @@ UOM Column Headers: ${config.uomHeader}`;
             
             // Assign fields based on order
             fields.forEach((field, idx) => {
-                if (idx < sortedColumns.length) {
+                if (idx < sortedColumns.length && field) {
                     const colType = sortedColumns[idx].type;
                     const value = field.trim();
                     
@@ -678,19 +688,23 @@ UOM Column Headers: ${config.uomHeader}`;
             const validPositions = positions.filter(p => p !== -1).sort((a, b) => a - b);
             
             if (validPositions.length > 0) {
-                let lastPos = 0;
                 for (let i = 0; i < validPositions.length; i++) {
                     const currentPos = validPositions[i];
                     const nextPos = i + 1 < validPositions.length ? validPositions[i + 1] : line.length;
                     const segment = line.substring(currentPos, nextPos).trim();
                     
+                    if (!segment) continue;
+                    
+                    const parts = segment.split(/\s+/);
+                    if (parts.length === 0) continue;
+                    
                     // Determine which field this is
-                    if (currentPos === columns.codePos) item.code = segment.split(/\s+/)[0];
-                    else if (currentPos === columns.namePos) item.name = segment.split(/\s+/)[0];
-                    else if (currentPos === columns.batchPos) item.batch = segment.split(/\s+/)[0];
-                    else if (currentPos === columns.expiryPos) item.expiry = segment.split(/\s+/)[0];
-                    else if (currentPos === columns.qtyPos) item.qty = parseInt(segment.split(/\s+/)[0]) || 1;
-                    else if (currentPos === columns.uomPos) item.uom = segment.split(/\s+/)[0] || 'Pcs';
+                    if (currentPos === columns.codePos) item.code = parts[0];
+                    else if (currentPos === columns.namePos) item.name = parts[0];
+                    else if (currentPos === columns.batchPos) item.batch = parts[0];
+                    else if (currentPos === columns.expiryPos) item.expiry = parts[0];
+                    else if (currentPos === columns.qtyPos) item.qty = parseInt(parts[0]) || 1;
+                    else if (currentPos === columns.uomPos) item.uom = parts[0] || 'Pcs';
                 }
             }
         }
@@ -830,19 +844,25 @@ UOM Column Headers: ${config.uomHeader}`;
                         return;
                     }
                     
-                    // Parse table format with multiple items
-                    detectedItems = parseTableFormat(trimmedText);
-                    
-                    if (detectedItems.length === 0) {
-                        alert('No items could be extracted. Please check your image format or configure column headers.');
-                        return;
+                    try {
+                        // Parse table format with multiple items
+                        detectedItems = parseTableFormat(trimmedText);
+                        
+                        if (detectedItems.length === 0) {
+                            alert('No items could be extracted. Please check your image format or configure column headers.');
+                            return;
+                        }
+                        
+                        selectedItems.clear();
+                        selectAllItems(); // Auto-select all
+                        renderDetectedItems();
+                        document.getElementById('reviewSection').style.display = 'block';
+                        document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
+                    } catch (error) {
+                        console.error('Parse Error:', error);
+                        alert('❌ Error parsing items: ' + error.message);
+                        document.getElementById('status').innerText = '❌ Parse error. Please try again.';
                     }
-                    
-                    selectedItems.clear();
-                    selectAllItems(); // Auto-select all
-                    renderDetectedItems();
-                    document.getElementById('reviewSection').style.display = 'block';
-                    document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
                 })
                 .catch(err => {
                     console.error('OCR Error:', err);
@@ -875,7 +895,7 @@ UOM Column Headers: ${config.uomHeader}`;
     
     function updateInventoryStats() {
         const totalItems = inventory.length;
-        const totalUnits = inventory.reduce((sum, item) => sum + (item.qty || 0), 0);
+        const totalUnits = inventory.reduce((sum, item) => sum + ((item.qty || 0)), 0);
         document.getElementById('totalItems').innerText = totalItems;
         document.getElementById('totalUnits').innerText = totalUnits;
     }
