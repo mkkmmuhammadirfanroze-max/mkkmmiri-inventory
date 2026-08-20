@@ -132,15 +132,18 @@
         
         .raw-output {
             background: #eee;
-            padding: 8px;
+            padding: 12px;
             border-radius: 4px;
-            font-size: 11px;
-            max-height: 150px;
+            font-size: 12px;
+            max-height: 250px;
             overflow-y: auto;
             margin-bottom: 15px;
-            color: #444;
-            font-family: monospace;
-            line-height: 1.4;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            line-height: 1.5;
+            border: 1px solid #ccc;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         
         .review-section {
@@ -252,6 +255,16 @@
             font-size: 13px;
             line-height: 1.6;
         }
+
+        .debug-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
         
         .field-mapping {
             background: white;
@@ -307,12 +320,25 @@
 
         .select-none { background: #ff3b30; }
         .select-none:hover { background: #d63026; }
+
+        .manual-header-section {
+            background: #fff9e6;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .manual-header-section.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📦 Advanced Inventory Scanner - Table Format</h2>
+    <h2>📦 Advanced Inventory Scanner - Smart Detection</h2>
     
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab(event, 'scan-tab')">📷 Scan & Extract</button>
@@ -334,8 +360,13 @@
             <div id="status">Ready to scan item tables.</div>
         </div>
 
-        <label style="font-size:11px; color:#777;">Raw OCR Text from Image:</label>
+        <label style="font-size:11px; color:#777;">📝 Raw Text Extracted from Image:</label>
         <div id="rawLog" class="raw-output">No photo scanned yet.</div>
+
+        <div id="debugSection" class="debug-box" style="display: none;">
+            <strong>🔍 DEBUG INFO:</strong>
+            <div id="debugContent"></div>
+        </div>
 
         <div id="reviewSection" class="review-section" style="display: none;">
             <h3>✅ Extracted Items</h3>
@@ -356,6 +387,13 @@
                 <button class="btn-success" onclick="addSelectedItems()">✅ Save Selected Items</button>
                 <button class="btn-danger" onclick="discardScan()">❌ Clear & Rescan</button>
             </div>
+        </div>
+
+        <div id="manualHeaderSection" class="manual-header-section">
+            <h3>⚙️ Manual Header Detection</h3>
+            <p>Couldn't find headers automatically? Help the scanner by identifying which line contains the column headers:</p>
+            <div id="headerLineOptions"></div>
+            <button class="btn-secondary" onclick="useManualHeader()">Confirm Header & Extract Items</button>
         </div>
     </div>
 
@@ -458,27 +496,29 @@
 </div>
 
 <script>
-    // DEFAULT CONFIGURATION - These are the defaults for your table format
+    // DEFAULT CONFIGURATION
     const DEFAULT_CONFIG = {
-        codeHeader: 'CODE, CODE/REF',
-        nameHeader: 'DESCRIPTION',
-        batchHeader: 'BATCH NO, BATCH, LOT, L/N',
-        expiryHeader: 'EXPIRY DATE, EXPIRY, EXP, EXP DATE, BEST BEFORE',
-        qtyHeader: 'QTY, QUANTITY, COUNT',
-        uomHeader: 'UOM, UNIT, TYPE'
+        codeHeader: 'CODE, CODE/REF, SKU, ITEM CODE',
+        nameHeader: 'DESCRIPTION, PRODUCT, NAME, ITEM, ITEM NAME',
+        batchHeader: 'BATCH NO, BATCH, LOT, L/N, BATCH NUMBER',
+        expiryHeader: 'EXPIRY DATE, EXPIRY, EXP, EXP DATE, BEST BEFORE, EXPIRY DATE/TIME',
+        qtyHeader: 'QTY, QUANTITY, COUNT, AMOUNT, QTY RECEIVED',
+        uomHeader: 'UOM, UNIT, TYPE, UNIT OF MEASURE, MEASURE'
     };
     
     let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
     let detectedItems = [];
     let selectedItems = new Set();
+    let lastRawText = '';
+    let lastLines = [];
+    let manualHeaderLineIndex = -1;
     
-    // Initialize config - check for corruption and use defaults if needed
+    // Initialize config
     let config = null;
     try {
         const stored = localStorage.getItem('scanner_config');
         config = stored ? JSON.parse(stored) : null;
         
-        // Validate config - if any field is undefined or null, use defaults
         if (!config || Object.values(config).some(v => !v || v === 'undefined')) {
             console.log('Config corrupted or missing - using defaults');
             config = { ...DEFAULT_CONFIG };
@@ -512,7 +552,6 @@
     }
     
     function loadConfigurationFields() {
-        // Load stored config into input fields
         document.getElementById('codeHeader').value = config.codeHeader || '';
         document.getElementById('nameHeader').value = config.nameHeader || '';
         document.getElementById('batchHeader').value = config.batchHeader || '';
@@ -541,7 +580,6 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
             uomHeader: document.getElementById('uomHeader').value.trim() || DEFAULT_CONFIG.uomHeader
         };
         
-        // Validate before saving
         const isValid = Object.values(newConfig).every(v => v && v !== 'undefined' && v.length > 0);
         if (!isValid) {
             alert('⚠️ Invalid configuration. All fields must have values.');
@@ -560,59 +598,67 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
             .map(h => h.trim())
             .filter(h => h && h !== 'undefined' && h.length > 0);
     }
-    
-    function parseTableFormat(text) {
+
+    function showDebugInfo(info) {
+        document.getElementById('debugSection').style.display = 'block';
+        document.getElementById('debugContent').innerHTML = '<pre>' + info + '</pre>';
+    }
+
+    function findHeaderLineAdvanced(lines) {
+        const codeHeaders = safeHeaderSplit(config.codeHeader);
+        
+        if (codeHeaders.length === 0) {
+            return -1;
+        }
+
+        let headerLineIndex = -1;
+
+        // Try to find exact match in first 10 lines
+        for (let i = 0; i < Math.min(lines.length, 10); i++) {
+            const upperLine = lines[i].toUpperCase();
+            for (let codeHeader of codeHeaders) {
+                if (codeHeader && upperLine.includes(codeHeader.toUpperCase())) {
+                    headerLineIndex = i;
+                    console.log(`Found header at line ${i}: "${lines[i]}"`);
+                    return headerLineIndex;
+                }
+            }
+        }
+
+        // If not found in first 10, return -1 and show manual selection
+        return -1;
+    }
+
+    function parseTableFormat(text, headerLineIndex) {
         const items = [];
         const lines = text.split('\n')
             .map(line => line.trim())
             .filter(line => line.length > 0);
-        
-        if (lines.length < 2) {
+
+        if (lines.length < 2 || headerLineIndex < 0 || headerLineIndex >= lines.length) {
             return items;
         }
-        
-        let headerLineIndex = -1;
-        let headerLine = '';
-        const codeHeaders = safeHeaderSplit(config.codeHeader);
-        
-        if (codeHeaders.length === 0) {
-            alert('❌ No code headers configured. Please configure fields first.');
-            return items;
-        }
-        
-        for (let i = 0; i < Math.min(lines.length, 5); i++) {
-            const upperLine = lines[i].toUpperCase();
-            if (codeHeaders.some(header => upperLine.includes(header))) {
-                headerLineIndex = i;
-                headerLine = lines[i];
-                break;
-            }
-        }
-        
-        if (headerLineIndex === -1) {
-            alert('⚠️ Could not find table header. Please check your image or configuration.');
-            return items;
-        }
-        
+
+        const headerLine = lines[headerLineIndex];
         const columnHeaders = detectColumns(headerLine);
-        
+
         for (let i = headerLineIndex + 1; i < lines.length; i++) {
             const line = lines[i];
-            
+
             if (line.length === 0 || /^[A-Z\s\-\/]+$/.test(line.substring(0, 30))) {
                 continue;
             }
-            
+
             const item = extractItemFromLine(line, columnHeaders);
             if (item.code || item.name) {
                 item.receive = new Date().toISOString().split('T')[0];
                 items.push(item);
             }
         }
-        
+
         return items;
     }
-    
+
     function detectColumns(headerLine) {
         const columns = {};
         
@@ -628,7 +674,7 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         const findPosition = (keywords) => {
             for (let kw of keywords) {
                 if (kw) {
-                    const pos = upperHeader.indexOf(kw);
+                    const pos = upperHeader.indexOf(kw.toUpperCase());
                     if (pos !== -1) return pos;
                 }
             }
@@ -641,10 +687,12 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         columns.expiryPos = findPosition(expiryKeywords);
         columns.qtyPos = findPosition(qtyKeywords);
         columns.uomPos = findPosition(uomKeywords);
+
+        console.log('Column positions:', columns);
         
         return columns;
     }
-    
+
     function extractItemFromLine(line, columns) {
         const item = {
             code: '',
@@ -655,7 +703,7 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
             expiry: '',
             receive: ''
         };
-        
+
         if (line.includes('|')) {
             const fields = line.split('|').map(f => f.trim());
             
@@ -667,7 +715,7 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                 { type: 'qty', pos: columns.qtyPos },
                 { type: 'uom', pos: columns.uomPos }
             ].sort((a, b) => (a.pos === -1 ? 999 : a.pos) - (b.pos === -1 ? 999 : b.pos));
-            
+
             fields.forEach((field, idx) => {
                 if (idx < sortedColumns.length && field) {
                     const colType = sortedColumns[idx].type;
@@ -682,8 +730,76 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                 }
             });
         }
-        
+
         return item;
+    }
+
+    function showManualHeaderSelection() {
+        const container = document.getElementById('headerLineOptions');
+        container.innerHTML = '';
+
+        const options = document.createElement('div');
+        options.style.display = 'grid';
+        options.style.gridTemplateColumns = '1fr';
+        options.style.gap = '8px';
+
+        lastLines.forEach((line, idx) => {
+            const label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            label.style.padding = '10px';
+            label.style.border = '1px solid #ddd';
+            label.style.borderRadius = '4px';
+            label.style.cursor = 'pointer';
+            label.style.backgroundColor = '#f9f9f9';
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'headerLine';
+            radio.value = idx;
+            radio.style.marginRight = '10px';
+            radio.style.cursor = 'pointer';
+            radio.onchange = () => { manualHeaderLineIndex = idx; };
+
+            const text = document.createElement('div');
+            text.style.flex = '1';
+            text.style.wordBreak = 'break-word';
+            text.style.fontSize = '12px';
+            text.innerHTML = `<strong>Line ${idx}:</strong> ${line.substring(0, 100)}...`;
+
+            label.appendChild(radio);
+            label.appendChild(text);
+            options.appendChild(label);
+        });
+
+        container.appendChild(options);
+        document.getElementById('manualHeaderSection').classList.add('show');
+    }
+
+    function useManualHeader() {
+        if (manualHeaderLineIndex < 0) {
+            alert('Please select a header line');
+            return;
+        }
+
+        try {
+            detectedItems = parseTableFormat(lastRawText, manualHeaderLineIndex);
+            
+            if (detectedItems.length === 0) {
+                alert('No items found in this table format. Make sure the lines below the header contain pipe-separated data.');
+                return;
+            }
+
+            selectedItems.clear();
+            selectAllItems();
+            renderDetectedItems();
+            document.getElementById('reviewSection').style.display = 'block';
+            document.getElementById('manualHeaderSection').classList.remove('show');
+            document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
+        } catch (error) {
+            console.error('Parse Error:', error);
+            alert('❌ Error parsing items: ' + error.message);
+        }
     }
     
     function renderDetectedItems() {
@@ -789,6 +905,8 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         detectedItems = [];
         selectedItems.clear();
         document.getElementById('reviewSection').style.display = 'none';
+        document.getElementById('debugSection').style.display = 'none';
+        document.getElementById('manualHeaderSection').classList.remove('show');
         document.getElementById('rawLog').innerText = '';
         document.getElementById('status').innerText = 'Ready to scan item tables.';
     }
@@ -800,6 +918,7 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         const file = files[0];
         document.getElementById('status').innerText = '🌀 Reading photo...';
         document.getElementById('rawLog').innerText = 'Processing image...';
+        document.getElementById('debugSection').style.display = 'none';
         
         const reader = new FileReader();
         reader.onload = function(event) {
@@ -810,22 +929,38 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                 .then(({ data: { text } }) => {
                     document.getElementById('status').innerText = '✅ Scan complete! Extracting items...';
                     
-                    let trimmedText = text.trim();
-                    document.getElementById('rawLog').innerText = trimmedText || 'No readable text detected.';
+                    lastRawText = text.trim();
+                    document.getElementById('rawLog').innerText = lastRawText || 'No readable text detected.';
                     
-                    if (!trimmedText) {
+                    if (!lastRawText) {
                         alert('Could not read any text from the image. Try with better lighting.');
                         return;
                     }
-                    
+
+                    lastLines = lastRawText.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0);
+
+                    const headerIdx = findHeaderLineAdvanced(lastLines);
+
+                    if (headerIdx < 0) {
+                        // Show manual selection
+                        console.log('Could not auto-detect header. Showing manual options.');
+                        showDebugInfo(`Auto-detection failed.\nScanned ${lastLines.length} lines.\nPlease manually select which line contains the headers.`);
+                        showManualHeaderSelection();
+                        document.getElementById('status').innerText = '⚠️ Could not auto-detect headers. Please manually select the header line above.';
+                        return;
+                    }
+
                     try {
-                        detectedItems = parseTableFormat(trimmedText);
+                        detectedItems = parseTableFormat(lastRawText, headerIdx);
                         
                         if (detectedItems.length === 0) {
-                            alert('No items could be extracted. Please check:\n1. Image format matches your table\n2. Configuration is correct');
+                            showDebugInfo(`Header found at line ${headerIdx}: "${lastLines[headerIdx]}"\nBut no items could be extracted.\nMake sure lines have pipe-separated format (|)`);
+                            alert('No items could be extracted. Check debug info below.');
                             return;
                         }
-                        
+
                         selectedItems.clear();
                         selectAllItems();
                         renderDetectedItems();
@@ -833,14 +968,15 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                         document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
                     } catch (error) {
                         console.error('Parse Error:', error);
+                        showDebugInfo(`Error: ${error.message}`);
                         alert('❌ Error parsing items: ' + error.message);
-                        document.getElementById('status').innerText = '❌ Parse error. Please try again.';
+                        document.getElementById('status').innerText = '❌ Parse error. Check debug info.';
                     }
                 })
                 .catch(err => {
                     console.error('OCR Error:', err);
                     document.getElementById('status').innerText = '❌ Scan error. Please try again.';
-                    document.getElementById('rawLog').innerText = 'Error: ' + err.message;
+                    showDebugInfo(`OCR Error: ${err.message}`);
                 });
         };
         
