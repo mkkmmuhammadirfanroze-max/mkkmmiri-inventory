@@ -74,14 +74,6 @@
             display: block;
         }
         
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .form-group { display: flex; flex-direction: column; }
-        .full-width { grid-column: span 2; }
         label { font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #555; }
         input[type="text"], input[type="number"], select, textarea {
             width: 100%;
@@ -91,11 +83,6 @@
             border-radius: 6px;
             font-size: 15px;
             font-family: inherit;
-        }
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-            font-family: monospace;
         }
         
         .btn-success {
@@ -177,7 +164,6 @@
             border-radius: 8px;
             padding: 12px;
             font-size: 13px;
-            position: relative;
             display: grid;
             grid-template-columns: 30px 1fr;
             gap: 10px;
@@ -257,10 +243,6 @@
             font-size: 13px;
         }
         
-        .config-group {
-            margin-bottom: 12px;
-        }
-        
         .info-box {
             background: #e3f2fd;
             border-left: 4px solid #2196F3;
@@ -333,9 +315,9 @@
     <h2>📦 Advanced Inventory Scanner - Table Format</h2>
     
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('scan-tab')">📷 Scan & Extract</button>
-        <button class="tab-btn" onclick="switchTab('config-tab')">⚙️ Configure Fields</button>
-        <button class="tab-btn" onclick="switchTab('inventory-tab')">📊 Inventory List</button>
+        <button class="tab-btn active" onclick="switchTab(event, 'scan-tab')">📷 Scan & Extract</button>
+        <button class="tab-btn" onclick="switchTab(event, 'config-tab')">⚙️ Configure Fields</button>
+        <button class="tab-btn" onclick="switchTab(event, 'inventory-tab')">📊 Inventory List</button>
     </div>
 
     <!-- SCAN & EXTRACT TAB -->
@@ -392,7 +374,7 @@
             <div class="field-mapping">
                 <div class="field-mapping-row">
                     <div class="field-mapping-label">1️⃣ Code Column:</div>
-                    <input type="text" id="codeHeader" value="CODE, CODE/REF" placeholder="e.g., CODE, SKU, ITEM CODE" style="width: 100%;">
+                    <input type="text" id="codeHeader" placeholder="e.g., CODE, SKU, ITEM CODE" style="width: 100%;">
                 </div>
                 <div style="font-size: 11px; color: #999;">Column header for product code/SKU</div>
             </div>
@@ -400,7 +382,7 @@
             <div class="field-mapping">
                 <div class="field-mapping-row">
                     <div class="field-mapping-label">2️⃣ Description Column:</div>
-                    <input type="text" id="nameHeader" value="DESCRIPTION" placeholder="e.g., DESCRIPTION, PRODUCT, NAME, ITEM" style="width: 100%;">
+                    <input type="text" id="nameHeader" placeholder="e.g., DESCRIPTION, PRODUCT, NAME, ITEM" style="width: 100%;">
                 </div>
                 <div style="font-size: 11px; color: #999;">Column header for product name/description</div>
             </div>
@@ -408,7 +390,7 @@
             <div class="field-mapping">
                 <div class="field-mapping-row">
                     <div class="field-mapping-label">3️⃣ Batch Column:</div>
-                    <input type="text" id="batchHeader" value="BATCH NO, BATCH, LOT, L/N" placeholder="e.g., BATCH NO, LOT, BATCH NUMBER" style="width: 100%;">
+                    <input type="text" id="batchHeader" placeholder="e.g., BATCH NO, LOT, BATCH NUMBER" style="width: 100%;">
                 </div>
                 <div style="font-size: 11px; color: #999;">Column header for batch/lot number</div>
             </div>
@@ -416,7 +398,7 @@
             <div class="field-mapping">
                 <div class="field-mapping-row">
                     <div class="field-mapping-label">4️⃣ Expiry Column:</div>
-                    <input type="text" id="expiryHeader" value="EXPIRY DATE, EXPIRY, EXP, EXP DATE, BEST BEFORE" placeholder="e.g., EXPIRY DATE, EXP DATE" style="width: 100%;">
+                    <input type="text" id="expiryHeader" placeholder="e.g., EXPIRY DATE, EXP DATE" style="width: 100%;">
                 </div>
                 <div style="font-size: 11px; color: #999;">Column header for expiry date</div>
             </div>
@@ -424,7 +406,7 @@
             <div class="field-mapping">
                 <div class="field-mapping-row">
                     <div class="field-mapping-label">5️⃣ Quantity Column:</div>
-                    <input type="text" id="qtyHeader" value="QTY, QUANTITY, COUNT" placeholder="e.g., QTY, QUANTITY, AMOUNT" style="width: 100%;">
+                    <input type="text" id="qtyHeader" placeholder="e.g., QTY, QUANTITY, AMOUNT" style="width: 100%;">
                 </div>
                 <div style="font-size: 11px; color: #999;">Column header for quantity</div>
             </div>
@@ -432,7 +414,7 @@
             <div class="field-mapping">
                 <div class="field-mapping-row">
                     <div class="field-mapping-label">6️⃣ UOM Column:</div>
-                    <input type="text" id="uomHeader" value="UOM, UNIT, TYPE" placeholder="e.g., UOM, UNIT, PER" style="width: 100%;">
+                    <input type="text" id="uomHeader" placeholder="e.g., UOM, UNIT, PER" style="width: 100%;">
                 </div>
                 <div style="font-size: 11px; color: #999;">Column header for unit of measure</div>
             </div>
@@ -476,10 +458,8 @@
 </div>
 
 <script>
-    let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
-    let detectedItems = [];
-    let selectedItems = new Set();
-    let config = JSON.parse(localStorage.getItem('scanner_config')) || {
+    // DEFAULT CONFIGURATION - These are the defaults for your table format
+    const DEFAULT_CONFIG = {
         codeHeader: 'CODE, CODE/REF',
         nameHeader: 'DESCRIPTION',
         batchHeader: 'BATCH NO, BATCH, LOT, L/N',
@@ -488,7 +468,29 @@
         uomHeader: 'UOM, UNIT, TYPE'
     };
     
-    function switchTab(tabName) {
+    let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
+    let detectedItems = [];
+    let selectedItems = new Set();
+    
+    // Initialize config - check for corruption and use defaults if needed
+    let config = null;
+    try {
+        const stored = localStorage.getItem('scanner_config');
+        config = stored ? JSON.parse(stored) : null;
+        
+        // Validate config - if any field is undefined or null, use defaults
+        if (!config || Object.values(config).some(v => !v || v === 'undefined')) {
+            console.log('Config corrupted or missing - using defaults');
+            config = { ...DEFAULT_CONFIG };
+            localStorage.setItem('scanner_config', JSON.stringify(config));
+        }
+    } catch (e) {
+        console.log('Error loading config - using defaults:', e);
+        config = { ...DEFAULT_CONFIG };
+        localStorage.setItem('scanner_config', JSON.stringify(config));
+    }
+    
+    function switchTab(event, tabName) {
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -505,12 +507,18 @@
         
         if (tabName === 'config-tab') {
             loadConfigDisplay();
+            loadConfigurationFields();
         }
     }
     
-    function setTodayDate() {
-        const today = new Date().toISOString().split('T')[0];
-        return today;
+    function loadConfigurationFields() {
+        // Load stored config into input fields
+        document.getElementById('codeHeader').value = config.codeHeader || '';
+        document.getElementById('nameHeader').value = config.nameHeader || '';
+        document.getElementById('batchHeader').value = config.batchHeader || '';
+        document.getElementById('expiryHeader').value = config.expiryHeader || '';
+        document.getElementById('qtyHeader').value = config.qtyHeader || '';
+        document.getElementById('uomHeader').value = config.uomHeader || '';
     }
     
     function loadConfigDisplay() {
@@ -523,52 +531,54 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         document.getElementById('configDisplay').innerText = display;
     }
     
-    function loadConfiguration() {
-        if (document.getElementById('codeHeader')) {
-            document.getElementById('codeHeader').value = config.codeHeader || '';
-            document.getElementById('nameHeader').value = config.nameHeader || '';
-            document.getElementById('batchHeader').value = config.batchHeader || '';
-            document.getElementById('expiryHeader').value = config.expiryHeader || '';
-            document.getElementById('qtyHeader').value = config.qtyHeader || '';
-            document.getElementById('uomHeader').value = config.uomHeader || '';
-        }
-        loadConfigDisplay();
-    }
-    
     function saveConfiguration() {
-        config = {
-            codeHeader: document.getElementById('codeHeader').value || 'CODE',
-            nameHeader: document.getElementById('nameHeader').value || 'DESCRIPTION',
-            batchHeader: document.getElementById('batchHeader').value || 'BATCH NO',
-            expiryHeader: document.getElementById('expiryHeader').value || 'EXPIRY DATE',
-            qtyHeader: document.getElementById('qtyHeader').value || 'QTY',
-            uomHeader: document.getElementById('uomHeader').value || 'UOM'
+        const newConfig = {
+            codeHeader: document.getElementById('codeHeader').value.trim() || DEFAULT_CONFIG.codeHeader,
+            nameHeader: document.getElementById('nameHeader').value.trim() || DEFAULT_CONFIG.nameHeader,
+            batchHeader: document.getElementById('batchHeader').value.trim() || DEFAULT_CONFIG.batchHeader,
+            expiryHeader: document.getElementById('expiryHeader').value.trim() || DEFAULT_CONFIG.expiryHeader,
+            qtyHeader: document.getElementById('qtyHeader').value.trim() || DEFAULT_CONFIG.qtyHeader,
+            uomHeader: document.getElementById('uomHeader').value.trim() || DEFAULT_CONFIG.uomHeader
         };
+        
+        // Validate before saving
+        const isValid = Object.values(newConfig).every(v => v && v !== 'undefined' && v.length > 0);
+        if (!isValid) {
+            alert('⚠️ Invalid configuration. All fields must have values.');
+            return;
+        }
+        
+        config = newConfig;
         localStorage.setItem('scanner_config', JSON.stringify(config));
-        alert('✅ Configuration saved! Column headers are now set.');
+        alert('✅ Configuration saved successfully!');
         loadConfigDisplay();
     }
     
-    // Safe split function with default value
-    function safeHeaderSplit(str, defaultValue = '') {
-        if (!str) return [defaultValue];
-        return str.split(',').map(h => (h || defaultValue).trim()).filter(h => h.length > 0);
+    function safeHeaderSplit(str) {
+        if (!str || str === 'undefined' || typeof str !== 'string') return [];
+        return str.split(',')
+            .map(h => h.trim())
+            .filter(h => h && h !== 'undefined' && h.length > 0);
     }
     
-    // Parse table/list format - detect column positions and extract multiple items
     function parseTableFormat(text) {
         const items = [];
-        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        const lines = text.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
         
         if (lines.length < 2) {
-            console.log('Not enough lines to parse');
             return items;
         }
         
-        // Find header line - contains column names
         let headerLineIndex = -1;
         let headerLine = '';
-        const codeHeaders = safeHeaderSplit(config.codeHeader, 'CODE');
+        const codeHeaders = safeHeaderSplit(config.codeHeader);
+        
+        if (codeHeaders.length === 0) {
+            alert('❌ No code headers configured. Please configure fields first.');
+            return items;
+        }
         
         for (let i = 0; i < Math.min(lines.length, 5); i++) {
             const upperLine = lines[i].toUpperCase();
@@ -580,25 +590,22 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         }
         
         if (headerLineIndex === -1) {
-            console.log('Could not find header line');
+            alert('⚠️ Could not find table header. Please check your image or configuration.');
             return items;
         }
         
-        // Find column positions based on header
         const columnHeaders = detectColumns(headerLine);
         
-        // Parse data rows (skip header and any non-data lines)
         for (let i = headerLineIndex + 1; i < lines.length; i++) {
             const line = lines[i];
             
-            // Skip empty lines or lines that look like headers
             if (line.length === 0 || /^[A-Z\s\-\/]+$/.test(line.substring(0, 30))) {
                 continue;
             }
             
             const item = extractItemFromLine(line, columnHeaders);
             if (item.code || item.name) {
-                item.receive = setTodayDate();
+                item.receive = new Date().toISOString().split('T')[0];
                 items.push(item);
             }
         }
@@ -606,21 +613,18 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         return items;
     }
     
-    // Detect column positions from header line
     function detectColumns(headerLine) {
         const columns = {};
         
-        // Keywords for each column type - use safe split
-        const codeKeywords = safeHeaderSplit(config.codeHeader, 'CODE');
-        const nameKeywords = safeHeaderSplit(config.nameHeader, 'DESCRIPTION');
-        const batchKeywords = safeHeaderSplit(config.batchHeader, 'BATCH NO');
-        const expiryKeywords = safeHeaderSplit(config.expiryHeader, 'EXPIRY DATE');
-        const qtyKeywords = safeHeaderSplit(config.qtyHeader, 'QTY');
-        const uomKeywords = safeHeaderSplit(config.uomHeader, 'UOM');
+        const codeKeywords = safeHeaderSplit(config.codeHeader);
+        const nameKeywords = safeHeaderSplit(config.nameHeader);
+        const batchKeywords = safeHeaderSplit(config.batchHeader);
+        const expiryKeywords = safeHeaderSplit(config.expiryHeader);
+        const qtyKeywords = safeHeaderSplit(config.qtyHeader);
+        const uomKeywords = safeHeaderSplit(config.uomHeader);
         
         const upperHeader = headerLine.toUpperCase();
         
-        // Find position of each column type
         const findPosition = (keywords) => {
             for (let kw of keywords) {
                 if (kw) {
@@ -641,7 +645,6 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         return columns;
     }
     
-    // Extract item data from a single line
     function extractItemFromLine(line, columns) {
         const item = {
             code: '',
@@ -650,14 +653,12 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
             qty: 1,
             uom: 'Pcs',
             expiry: '',
-            receive: setTodayDate()
+            receive: ''
         };
         
-        // Handle pipe-separated format
         if (line.includes('|')) {
             const fields = line.split('|').map(f => f.trim());
             
-            // Try to map fields by position to columns
             const sortedColumns = [
                 { type: 'code', pos: columns.codePos },
                 { type: 'name', pos: columns.namePos },
@@ -667,7 +668,6 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                 { type: 'uom', pos: columns.uomPos }
             ].sort((a, b) => (a.pos === -1 ? 999 : a.pos) - (b.pos === -1 ? 999 : b.pos));
             
-            // Assign fields based on order
             fields.forEach((field, idx) => {
                 if (idx < sortedColumns.length && field) {
                     const colType = sortedColumns[idx].type;
@@ -681,32 +681,6 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                     else if (colType === 'expiry') item.expiry = value;
                 }
             });
-        } else {
-            // Handle space-separated format - use column positions
-            const positions = [columns.codePos, columns.namePos, columns.batchPos, 
-                             columns.expiryPos, columns.qtyPos, columns.uomPos];
-            const validPositions = positions.filter(p => p !== -1).sort((a, b) => a - b);
-            
-            if (validPositions.length > 0) {
-                for (let i = 0; i < validPositions.length; i++) {
-                    const currentPos = validPositions[i];
-                    const nextPos = i + 1 < validPositions.length ? validPositions[i + 1] : line.length;
-                    const segment = line.substring(currentPos, nextPos).trim();
-                    
-                    if (!segment) continue;
-                    
-                    const parts = segment.split(/\s+/);
-                    if (parts.length === 0) continue;
-                    
-                    // Determine which field this is
-                    if (currentPos === columns.codePos) item.code = parts[0];
-                    else if (currentPos === columns.namePos) item.name = parts[0];
-                    else if (currentPos === columns.batchPos) item.batch = parts[0];
-                    else if (currentPos === columns.expiryPos) item.expiry = parts[0];
-                    else if (currentPos === columns.qtyPos) item.qty = parseInt(parts[0]) || 1;
-                    else if (currentPos === columns.uomPos) item.uom = parts[0] || 'Pcs';
-                }
-            }
         }
         
         return item;
@@ -845,16 +819,15 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
                     }
                     
                     try {
-                        // Parse table format with multiple items
                         detectedItems = parseTableFormat(trimmedText);
                         
                         if (detectedItems.length === 0) {
-                            alert('No items could be extracted. Please check your image format or configure column headers.');
+                            alert('No items could be extracted. Please check:\n1. Image format matches your table\n2. Configuration is correct');
                             return;
                         }
                         
                         selectedItems.clear();
-                        selectAllItems(); // Auto-select all
+                        selectAllItems();
                         renderDetectedItems();
                         document.getElementById('reviewSection').style.display = 'block';
                         document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
@@ -929,9 +902,9 @@ UOM Column Headers: ${config.uomHeader || 'Not set'}`;
         document.body.removeChild(link);
     }
     
-    // Initialize
-    loadConfiguration();
+    // Initialize page
     renderTable();
+    loadConfigDisplay();
 </script>
 </body>
 </html>
