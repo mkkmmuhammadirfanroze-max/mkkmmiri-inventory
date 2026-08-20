@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Inventory Scanner</title>
+    <!-- Include Tesseract.js for OCR directly in the browser -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f7;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        h2 { margin-top: 0; text-align: center; color: #007aff; font-size: 22px; }
+        .upload-section {
+            border: 2px dashed #007aff;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            background: #f0f7ff;
+            margin-bottom: 15px;
+        }
+        .file-label {
+            display: inline-block;
+            padding: 12px 20px;
+            background: #007aff;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        input[type="file"] { display: none; }
+        #status { font-weight: bold; color: #666; margin: 8px 0; text-align: center; font-size: 14px; }
+        
+        /* Form grid layout */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .full-width { grid-column: span 2; }
+        label { font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #555; }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+        
+        .btn-success {
+            width: 100%;
+            padding: 12px;
+            background: #34c759;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-export {
+            background: #ff9500;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        /* Mobile responsive table */
+        .table-wrapper { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 13px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; position: sticky; top: 0; }
+        .delete-btn { color: #ff3b30; cursor: pointer; border: none; background: none; font-weight: bold; font-size: 16px; }
+        
+        /* Debug log view to see raw scan output */
+        .raw-output {
+            background: #eee;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            max-height: 60px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            color: #444;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📦 Detailed Inventory Tracker</h2>
+    
+    <!-- Camera Section -->
+    <div class="upload-section">
+        <label class="file-label">
+            📷 Snap Label or Photo
+            <input type="file" id="imageInput" accept="image/*">
+        </label>
+        <div id="status">Ready to scan labels.</div>
+    </div>
+
+    <!-- Raw text box to see what the camera captured -->
+    <label style="font-size:11px; color:#777;">Raw Camera Text Captured:</label>
+    <div id="rawLog" class="raw-output">No photo scanned yet. Real text from your photo will appear here.</div>
+
+    <!-- Data Input Form Fields -->
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="itemCode">1. Code / Ref ID:</label>
+            <input type="text" id="itemCode" placeholder="e.g. SKU102">
+        </div>
+        
+        <div class="form-group">
+            <label for="itemBatch">3. Batch / Lot No:</label>
+            <input type="text" id="itemBatch" placeholder="e.g. B2409">
+        </div>
+
+        <div class="form-group full-width">
+            <label for="itemName">2. Description / Item Name:</label>
+            <input type="text" id="itemName" placeholder="Product name or full scanned text details">
+        </div>
+
+        <div class="form-group">
+            <label for="itemQty">4. Quantity:</label>
+            <input type="number" id="itemQty" value="1">
+        </div>
+
+        <div class="form-group">
+            <label for="itemUom">Unit (UOM):</label>
+            <select id="itemUom">
+                <option value="Bottle">Bottle</option>
+                <option value="Pack">Pack</option>
+                <option value="Pcs">Pcs</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="itemExpiry">5. Expiry Date:</label>
+            <input type="text" id="itemExpiry" placeholder="YYYY-MM-DD or text">
+        </div>
+
+        <div class="form-group">
+            <label for="itemReceive">6. Receive Date:</label>
+            <input type="text" id="itemReceive" placeholder="Today's date automatically sets">
+        </div>
+    </div>
+
+    <button class="btn-success" onclick="addToInventory()">Add Item to List</button>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+    <!-- List Management -->
+    <h3>Saved Inventory</h3>
+    <button class="btn-export" onclick="exportToCSV()">📥 Export Data to Excel (CSV)</button>
+    
+    <div class="table-wrapper">
+        <table id="inventoryTable">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Description</th>
+                    <th>Batch/Lot</th>
+                    <th>Qty</th>
+                    <th>UOM</th>
+                    <th>Expiry</th>
+                    <th>Received</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
+    
+    // Automatically set Receive Date to today's date on startup
+    function setTodayDate() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('itemReceive').value = today;
+    }
+    
+    setTodayDate();
+    renderTable();
+
+    // OCR scanning logic triggered by your phone camera
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('status').innerText = "🌀 Processing image... looking for text...";
+        document.getElementById('rawLog').innerText = "Scanning text pieces...";
+
+        Tesseract.recognize(file, 'eng')
+            .then(({ data: { text } }) => {
+                document.getElementById('status').innerText = "✅ Scan complete! Review fields below.";
+                
+                // Keep raw lines visible for validation
+                document.getElementById('rawLog').innerText = text.trim() || "No text found at all.";
+
+                let cleanText = text.trim().replace(/\n+/g, ' ');
+                
+                // 1. Put everything into Description first as a safety backup
+                document.getElementById('itemName').value = cleanText;
+
+                // Smart Filter: Try to extract a batch number if the label says "LOT" or "BATCH"
+                const batchMatch = text.match(/(?:batch|lot|b\.n\.|l\.n\.)[:#.\s]*([A-Z0-9-]+)/i);
+                if (batchMatch && batchMatch[1]) {
+                    document.getElementById('itemBatch').value = batchMatch[1];
+                }
+
+                // Smart Filter: Try to extract an Expiry Date if the label says "EXP" or "EXPIRY"
+                const expMatch = text.match(/(?:exp|expiry|exp\.date)[:\s]*([0-9A-Za-z\/-]+)/i);
+                if (expMatch && expMatch[1]) {
+                    document.getElementById('itemExpiry').value = expMatch[1];
+                }
+
+                // Smart Filter: Auto select UOM if 'pack' or 'bottle' is printed anywhere
+                if (/pack/i.test(text)) {
+                    document.getElementById('itemUom').value = "Pack";
+                } else if (/bottle/i.test(text)) {
+                    document.getElementById('itemUom').value = "Bottle";
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('status').innerText = "❌ Scanner failed. Please type details manually.";
+            });
+    });
+
+    // Save item entry to phone memory
+    function addToInventory() {
+        const code = document.getElementById('itemCode').value.trim();
+        const name = document.getElementById('itemName').value.trim();
+        const batch = document.getElementById('itemBatch').value.trim();
+        const qty = parseInt(document.getElementById('itemQty').value) || 1;
+        const uom = document.getElementById('itemUom').value;
+        const expiry = document.getElementById('itemExpiry').value.trim();
+        const receive = document.getElementById('itemReceive').value.trim();
+
+        if (!name && !code) {
+            alert("Please input at least a Code or a Description before saving.");
+            return;
+        }
+
+inventory.push({ code, name, batch, qty, uom, expiry, receive });
+localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+
+// Reset inputs for next scan
+document.getElementById('itemCode').value = "";
+document.getElementById('itemName').value = "";
+document.getElementById('itemBatch').value = "";
+document.getElementById('itemQty').value = "1";
+document.getElementById('itemUom').value = "Bottle";
+document.getElementById('itemExpiry').value = "";
+setTodayDate();
+document.getElementById('status').innerText = "Ready to scan labels.";
+renderTable();
+}
+
+// Put data onto the screen table rows
+function renderTable() {
+    const tbody = document.getElementById('inventoryBody');
+    tbody.innerHTML = "";
+    inventory.forEach((item, index) => {
+        const row = `<tr> 
+            <td><b>${item.code || '-'}</b></td> 
+            <td>${item.name || '-'}</td> 
+            <td>${item.batch || '-'}</td> 
+            <td>${item.qty}</td> 
+            <td>${item.uom}</td> 
+            <td>${item.expiry || '-'}</td> 
+            <td>${item.receive || '-'}</td> 
+            <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td> 
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+}
+
+function deleteItem(index) {
+    if(confirm("Delete this entry?")) {
+        inventory.splice(index, 1);
+        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+        renderTable();
+    }
+}
+
+// Download spreadsheet function
+function exportToCSV() {
+    if (inventory.length === 0) {
+        alert("Nothing to export yet!");
+        return;
+    }
+    let csvContent = "data:text/csv;charset=utf-8,Code/Ref ID,Description/Item Name,Batch or Lot No,Quantity,UOM,Expiry Date,Receive Date\n";
+    inventory.forEach(item => {
+        let safeName = (item.name || '').replace(/"/g, '""');
+        let safeCode = (item.code || '').replace(/"/g, '""');
+        let safeBatch = (item.batch || '').replace(/"/g, '""');
+        csvContent += `"${safeCode}","${safeName}","${safeBatch}",${item.qty},"${item.uom}","${item.expiry}","${item.receive}"\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "inventory_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
