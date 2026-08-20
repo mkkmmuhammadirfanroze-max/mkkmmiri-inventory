@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detailed Inventory Scanner</title>
-    <!-- Stable CDN link for Tesseract.js -->
-    <script src="https://unpkg.com"></script>
+    <!-- Fixed Tesseract.js CDN link -->
+    <script src="https://unpkg.com/tesseract.js@v4/dist/tesseract.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -219,28 +219,43 @@
 
                     if (!trimmedText) return;
 
+                    // Full scanned text goes to Description field
                     let cleanLineText = trimmedText.replace(/\n+/g, ' ');
                     document.getElementById('itemName').value = cleanLineText;
 
-                    const batchMatch = trimmedText.match(/(?:batch|lot|b\.n\.|l\.n\.|b\/n)[:#.\s]*([A-Z0-9-]+)/i);
+                    // Enhanced regex patterns for better extraction
+                    
+                    // Extract SKU/Code - look for patterns like "SKU123", "CODE:ABC"
+                    const codeMatch = trimmedText.match(/(?:sku|code|ref|id)[:\s#.]*([A-Z0-9\-_]+)/i);
+                    if (codeMatch && codeMatch[1]) {
+                        document.getElementById('itemCode').value = codeMatch[1];
+                    }
+
+                    // Extract Batch/Lot Number - improved patterns
+                    const batchMatch = trimmedText.match(/(?:batch|lot|b\.n\.|l\.n\.|b\/n|batch\s*no|lot\s*no)[:\s#.]*([A-Z0-9\-]+)/i);
                     if (batchMatch && batchMatch[1]) {
                         document.getElementById('itemBatch').value = batchMatch[1];
                     }
 
-                    const expMatch = trimmedText.match(/(?:exp|expiry|exp\.date|best before)[:\s]*([0-9A-Za-z\/-]+)/i);
+                    // Extract Expiry Date - more flexible matching
+                    const expMatch = trimmedText.match(/(?:exp|expiry|exp\.date|best before|expires?)[:\s]*([0-9A-Za-z\/-]+)/i);
                     if (expMatch && expMatch[1]) {
                         document.getElementById('itemExpiry').value = expMatch[1];
                     }
 
+                    // Auto-detect Unit type
                     if (/pack/i.test(trimmedText)) {
                         document.getElementById('itemUom').value = "Pack";
                     } else if (/bottle/i.test(trimmedText)) {
                         document.getElementById('itemUom').value = "Bottle";
+                    } else if (/pcs|piece|pc/i.test(trimmedText)) {
+                        document.getElementById('itemUom').value = "Pcs";
                     }
                 })
                 .catch(err => {
                     console.error("OCR Failure Error: ", err);
                     document.getElementById('status').innerText = "❌ Scan error. Please type manually.";
+                    document.getElementById('rawLog').innerText = "Error: " + err.message;
                 });
         };
         
@@ -265,60 +280,62 @@
         localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
         
         document.getElementById('itemCode').value = "";
-
-document.getElementById('itemName').value = "";
-document.getElementById('itemBatch').value = "";
-document.getElementById('itemQty').value = "1";
-document.getElementById('itemUom').value = "Bottle";
-document.getElementById('itemExpiry').value = "";
-setTodayDate();
-document.getElementById('status').innerText = "Ready to scan labels.";
-renderTable();
-}
-
-function renderTable() {
-    const tbody = document.getElementById('inventoryBody');
-    tbody.innerHTML = "";
-    inventory.forEach((item, index) => {
-        const row = `<tr> 
-            <td><b>${item.code || '-'}</b></td> 
-            <td>${item.name || '-'}</td> 
-            <td>${item.batch || '-'}</td> 
-            <td>${item.qty}</td> 
-            <td>${item.uom}</td> 
-            <td>${item.expiry || '-'}</td> 
-            <td>${item.receive || '-'}</td> 
-            <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td> 
-        </tr>`;
-        tbody.innerHTML += row;
-    });
-}
-
-function deleteItem(index) {
-    if(confirm("Delete this entry?")) {
-        inventory.splice(index, 1);
-        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+        document.getElementById('itemName').value = "";
+        document.getElementById('itemBatch').value = "";
+        document.getElementById('itemQty').value = "1";
+        document.getElementById('itemUom').value = "Bottle";
+        document.getElementById('itemExpiry').value = "";
+        setTodayDate();
+        document.getElementById('status').innerText = "Ready to scan labels.";
         renderTable();
     }
-}
 
-function exportToCSV() {
-    if (inventory.length === 0) {
-        alert("Nothing to export yet!");
-        return;
+    function renderTable() {
+        const tbody = document.getElementById('inventoryBody');
+        tbody.innerHTML = "";
+        inventory.forEach((item, index) => {
+            const row = `<tr> 
+                <td><b>${item.code || '-'}</b></td> 
+                <td>${item.name || '-'}</td> 
+                <td>${item.batch || '-'}</td> 
+                <td>${item.qty}</td> 
+                <td>${item.uom}</td> 
+                <td>${item.expiry || '-'}</td> 
+                <td>${item.receive || '-'}</td> 
+                <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td> 
+            </tr>`;
+            tbody.innerHTML += row;
+        });
     }
-    let csvContent = "data:text/csv;charset=utf-8,Code/Ref ID,Description/Item Name,Batch or Lot No,Quantity,UOM,Expiry Date,Receive Date\n";
-    inventory.forEach(item => {
-        let safeName = (item.name || '').replace(/"/g, '""');
-        let safeCode = (item.code || '').replace(/"/g, '""');
-        let safeBatch = (item.batch || '').replace(/"/g, '""');
-        csvContent += `"${safeCode}","${safeName}","${safeBatch}",${item.qty},"${item.uom}","${item.expiry}","${item.receive}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "inventory_report.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+
+    function deleteItem(index) {
+        if(confirm("Delete this entry?")) {
+            inventory.splice(index, 1);
+            localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+            renderTable();
+        }
+    }
+
+    function exportToCSV() {
+        if (inventory.length === 0) {
+            alert("Nothing to export yet!");
+            return;
+        }
+        let csvContent = "data:text/csv;charset=utf-8,Code/Ref ID,Description/Item Name,Batch or Lot No,Quantity,UOM,Expiry Date,Receive Date\n";
+        inventory.forEach(item => {
+            let safeName = (item.name || '').replace(/"/g, '""');
+            let safeCode = (item.code || '').replace(/"/g, '""');
+            let safeBatch = (item.batch || '').replace(/"/g, '""');
+            csvContent += `"${safeCode}","${safeName}","${safeBatch}",${item.qty},"${item.uom}","${item.expiry}","${item.receive}"\n`;
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "inventory_report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
