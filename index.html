@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Inventory Scanner</title>
-    <!-- Tesseract.js for OCR -->
-    <script src="https://unpkg.com/tesseract.js@v4/dist/tesseract.min.js"></script>
+    <title>Smart Inventory Scanner - PaddleOCR</title>
+    <!-- PaddleOCR via ONNX Runtime -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/paddleocr-js@1.4.2/paddleOCR.min.js"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -118,6 +119,21 @@
             min-height: 20px;
             font-weight: bold;
         }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            width: 0%;
+            transition: width 0.3s;
+        }
         .text-box {
             background: white;
             border: 2px solid #ddd;
@@ -142,6 +158,9 @@
             margin-bottom: 15px;
             font-size: 12px;
             line-height: 1.6;
+        }
+        .extraction-info strong {
+            color: #0284c7;
         }
         .form-section {
             display: grid;
@@ -312,17 +331,30 @@
         .tips strong {
             color: #0284c7;
         }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h1>📷 Smart Product Scanner</h1>
-        <p>Capture product labels and extract specific product information</p>
+        <h1>📷 Smart Product Scanner v2</h1>
+        <p>Powered by PaddleOCR - Better accuracy for product labels</p>
     </div>
 
     <div class="content">
+        <!-- INIT WARNING -->
+        <div class="warning" id="initWarning" style="display: none;">
+            ⏳ <strong>Initializing PaddleOCR...</strong> First scan takes longer (~30-60 seconds) as it loads the AI model. Subsequent scans are faster.
+        </div>
+
         <!-- CAMERA SECTION -->
         <div class="camera-section">
             <h3 style="margin-top: 0; color: #333;">📸 Capture Product Label</h3>
@@ -340,15 +372,18 @@
 
             <input type="file" id="fileInput" accept="image/*">
             <div id="status"></div>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
         </div>
 
         <!-- TIPS -->
         <div class="tips">
             <strong>💡 Tips for best results:</strong><br>
-            ✓ Make sure product name is visible on label<br>
-            ✓ Good lighting (avoid shadows and glare)<br>
-            ✓ Keep label straight and in focus<br>
-            ✓ Capture clear, readable text
+            ✓ Product name should be clearly visible<br>
+            ✓ Good lighting (no shadows or glare)<br>
+            ✓ Keep text straight and in focus<br>
+            ✓ PaddleOCR works better than Tesseract!
         </div>
 
         <!-- RAW TEXT OUTPUT -->
@@ -356,21 +391,24 @@
             <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block;">
                 📝 Full Extracted Text:
             </label>
-            <div id="rawLog" class="text-box">Capture or upload a photo. Full text will appear here.</div>
+            <div id="rawLog" class="text-box">Capture or upload a photo. PaddleOCR will extract text here.</div>
         </div>
 
         <!-- EXTRACTION INFO -->
         <div class="extraction-info" id="extractionInfo" style="display: none;">
-            <strong>✅ Extracted Fields:</strong><br>
-            Code: <span id="extractedCode">—</span><br>
-            Description: <span id="extractedDesc">—</span><br>
-            Batch: <span id="extractedBatch">—</span><br>
-            Expiry: <span id="extractedExp">—</span>
+            <strong>✅ Detected Fields:</strong><br>
+            <span style="display: block; margin-top: 8px;">
+                <strong>Code:</strong> <span id="extractedCode">—</span><br>
+                <strong>Description:</strong> <span id="extractedDesc">—</span><br>
+                <strong>Batch:</strong> <span id="extractedBatch">—</span><br>
+                <strong>Quantity:</strong> <span id="extractedQty">—</span><br>
+                <strong>Expiry:</strong> <span id="extractedExp">—</span>
+            </span>
         </div>
 
         <!-- INFO BOX -->
         <div class="info-box">
-            ℹ️ <strong>How it works:</strong> Capture a product label photo. The system extracts the product name/description (first 1-2 lines), SKU, batch number, and expiry date. Review and edit fields before saving.
+            ℹ️ <strong>About this scanner:</strong> Uses PaddleOCR (better accuracy than Tesseract) to read product labels. Extracts product name, code, batch number, quantity, and expiry date. Works offline - no data sent to servers.
         </div>
 
         <!-- FORM -->
@@ -463,11 +501,43 @@
 <script>
     let inventory = JSON.parse(localStorage.getItem('inventory_data')) || [];
     let currentStream = null;
+    let ocrEngine = null;
+    let modelLoaded = false;
 
     // Initialize
-    function init() {
+    async function init() {
         setTodayDate();
         renderTable();
+        await initPaddleOCR();
+    }
+
+    // Initialize PaddleOCR
+    async function initPaddleOCR() {
+        try {
+            console.log('Initializing PaddleOCR...');
+            document.getElementById('initWarning').style.display = 'block';
+            
+            // Initialize the OCR engine
+            if (window.paddleOCR) {
+                ocrEngine = await window.paddleOCR.PaddleOCR.create({
+                    ocr_version: '2',
+                    lang: 'en',
+                    enable_mkldnn: true,
+                });
+                modelLoaded = true;
+                console.log('PaddleOCR initialized successfully');
+                document.getElementById('initWarning').style.display = 'none';
+                document.getElementById('status').innerText = '✅ Scanner ready! Click Start Camera or Upload Photo.';
+            } else {
+                console.error('PaddleOCR library not loaded');
+                document.getElementById('status').innerText = '⚠️ PaddleOCR library loading...';
+                setTimeout(initPaddleOCR, 2000);
+            }
+        } catch (error) {
+            console.error('Error initializing PaddleOCR:', error);
+            document.getElementById('status').innerText = '⚠️ Loading PaddleOCR models...';
+            setTimeout(initPaddleOCR, 3000);
+        }
     }
 
     function setTodayDate() {
@@ -481,7 +551,7 @@
             
             const constraints = {
                 video: {
-                    facingMode: 'environment', // Use rear camera
+                    facingMode: 'environment',
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 }
@@ -494,10 +564,9 @@
 
             document.getElementById('captureBtn').style.display = 'inline-block';
             document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('status').innerText = '✅ Camera ready. Click Capture to take a photo.';
+            document.getElementById('status').innerText = '✅ Camera ready. Click Capture.';
         } catch (error) {
-            document.getElementById('status').innerText = '❌ Camera access denied: ' + error.message;
-            console.error('Camera error:', error);
+            document.getElementById('status').innerText = '❌ Camera access denied.';
         }
     }
 
@@ -509,7 +578,6 @@
         document.getElementById('cameraVideo').style.display = 'none';
         document.getElementById('captureBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'none';
-        document.getElementById('status').innerText = '';
     }
 
     function capturePhoto() {
@@ -523,7 +591,6 @@
 
         const imageData = canvas.toDataURL('image/jpeg', 0.95);
         processImage(imageData);
-        
         stopCamera();
     }
 
@@ -542,9 +609,16 @@
         reader.readAsDataURL(file);
     });
 
-    // IMAGE PROCESSING & OCR
+    // IMAGE PROCESSING WITH PADDLEOCR
     async function processImage(imageDataUrl) {
-        document.getElementById('status').innerText = '🌀 Processing image...';
+        if (!modelLoaded) {
+            document.getElementById('status').innerText = '⏳ PaddleOCR still loading... Please wait.';
+            return;
+        }
+
+        document.getElementById('status').innerText = '🌀 Processing with PaddleOCR...';
+        document.getElementById('progressBar').style.display = 'block';
+        document.getElementById('progressFill').style.width = '0%';
 
         try {
             // Show preview
@@ -552,57 +626,72 @@
             preview.src = imageDataUrl;
             preview.style.display = 'block';
 
-            // Run OCR
-            document.getElementById('status').innerText = '🔄 Extracting text (this takes 10-20 seconds)...';
-            
-            const { data: { text, confidence } } = await Tesseract.recognize(imageDataUrl, 'eng', {
-                logger: m => console.log(m)
-            });
+            // Create image from URL for processing
+            const img = new Image();
+            img.onload = async function() {
+                try {
+                    // Run PaddleOCR
+                    document.getElementById('progressFill').style.width = '50%';
+                    
+                    const result = await ocrEngine.ocr(img);
+                    
+                    document.getElementById('progressFill').style.width = '100%';
+                    document.getElementById('status').innerText = '✅ Scan complete!';
 
-            document.getElementById('status').innerText = `✅ Scan complete! (Confidence: ${Math.round(confidence)}%)`;
+                    // Extract text from results
+                    let fullText = '';
+                    if (result && result.length > 0) {
+                        result.forEach(line => {
+                            if (line[1]) {
+                                fullText += line[1][0] + '\n';
+                            }
+                        });
+                    }
 
-            const cleanText = text.trim();
-            document.getElementById('rawLog').innerText = cleanText || 'No readable text detected. Try better lighting.';
+                    fullText = fullText.trim();
+                    document.getElementById('rawLog').innerText = fullText || 'No text detected. Try a clearer image.';
 
-            if (!cleanText) {
-                document.getElementById('status').innerText = '⚠️ No text found. Please try a clearer image.';
-                return;
-            }
+                    if (!fullText) {
+                        document.getElementById('status').innerText = '⚠️ No text found. Try again.';
+                        return;
+                    }
 
-            // Auto-fill form with smart extraction
-            autoFillForm(cleanText);
+                    // Auto-fill form
+                    autoFillForm(fullText);
+
+                    setTimeout(() => {
+                        document.getElementById('progressBar').style.display = 'none';
+                    }, 1000);
+
+                } catch (error) {
+                    console.error('OCR Error:', error);
+                    document.getElementById('status').innerText = '❌ Error processing image.';
+                    document.getElementById('progressBar').style.display = 'none';
+                }
+            };
+            img.src = imageDataUrl;
 
         } catch (error) {
             console.error('Error:', error);
             document.getElementById('status').innerText = '❌ Error: ' + error.message;
+            document.getElementById('progressBar').style.display = 'none';
         }
     }
 
     function autoFillForm(text) {
         const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
         
-        // Extract product description from first lines (not the whole text)
+        // Extract product description (first meaningful line)
         let description = '';
-        let descriptionLines = 0;
-        
-        for (let i = 0; i < lines.length && descriptionLines < 2; i++) {
+        for (let i = 0; i < lines.length && !description; i++) {
             const line = lines[i];
-            
-            // Skip lines that are clearly metadata (codes, dates, etc)
-            if (!/^[A-Z0-9\-]{3,}$/.test(line) && // Skip pure codes like "SKU123"
-                !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) && // Skip dates
-                !/batch|lot|exp|expiry|sku|code|id|item/i.test(line) && // Skip labels
+            if (!/^[A-Z0-9\-]{3,}$/.test(line) &&
+                !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) &&
+                !/batch|lot|exp|expiry|sku|code|id|item/i.test(line) &&
                 line.length > 3) {
-                
-                if (description) {
-                    description += ' ' + line;
-                } else {
-                    description = line;
-                }
-                descriptionLines++;
+                description = line;
             }
         }
-        
         document.getElementById('itemName').value = description.substring(0, 200) || '';
 
         // Extract Code/SKU
@@ -610,8 +699,7 @@
             /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i,
             /CODE[:\s#-]*([A-Z0-9\-]{3,15})/i,
             /ID[:\s#-]*([A-Z0-9\-]{3,15})/i,
-            /ITEM[:\s#-]*([A-Z0-9\-]{3,15})/i,
-            /^([A-Z0-9\-]{5,15})$/m // Standalone code
+            /^([A-Z0-9\-]{5,12})$/m
         ];
         for (let pattern of codePatterns) {
             const match = text.match(pattern);
@@ -626,8 +714,7 @@
             /BATCH[:\s#-]*([A-Z0-9\-]{2,10})/i,
             /LOT[:\s#-]*([A-Z0-9\-]{2,10})/i,
             /B\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i,
-            /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i,
-            /BATCH\s*NO[:\s#-]*([A-Z0-9\-]{2,10})/i
+            /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i
         ];
         for (let pattern of batchPatterns) {
             const match = text.match(pattern);
@@ -640,7 +727,7 @@
         // Extract Expiry Date
         const datePatterns = [
             /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i,
-            /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{4})(?:\s|$)/
+            /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{4})/
         ];
         for (let pattern of datePatterns) {
             const match = text.match(pattern);
@@ -650,7 +737,7 @@
             }
         }
 
-        // Extract Quantity (numbers with units like "100ml", "500g", "2pack")
+        // Extract Quantity
         const qtyMatch = text.match(/(\d+)\s*(?:ml|g|kg|l|pieces?|pcs?|pack|bottle|box)/i);
         if (qtyMatch) {
             const qty = parseInt(qtyMatch[1]);
@@ -666,11 +753,8 @@
             document.getElementById('itemUom').value = 'Pack';
         } else if (/box/i.test(text)) {
             document.getElementById('itemUom').value = 'Box';
-        } else if (/carton|ctn/i.test(text)) {
-            document.getElementById('itemUom').value = 'Carton';
         }
 
-        // Show extraction info
         showExtractionInfo();
     }
 
@@ -679,6 +763,7 @@
         document.getElementById('extractedCode').innerText = document.getElementById('itemCode').value || '—';
         document.getElementById('extractedDesc').innerText = document.getElementById('itemName').value || '—';
         document.getElementById('extractedBatch').innerText = document.getElementById('itemBatch').value || '—';
+        document.getElementById('extractedQty').innerText = document.getElementById('itemQty').value || '—';
         document.getElementById('extractedExp').innerText = document.getElementById('itemExpiry').value || '—';
         infoDiv.style.display = 'block';
     }
@@ -721,8 +806,7 @@
         document.getElementById('itemUom').value = 'Pcs';
         document.getElementById('itemExpiry').value = '';
         setTodayDate();
-        document.getElementById('rawLog').innerText = 'Capture or upload a photo. Full text will appear here.';
-        document.getElementById('status').innerText = '';
+        document.getElementById('rawLog').innerText = 'Capture or upload a photo. PaddleOCR will extract text here.';
         document.getElementById('cameraPreview').style.display = 'none';
         document.getElementById('extractionInfo').style.display = 'none';
     }
@@ -731,7 +815,7 @@
         const tbody = document.getElementById('inventoryBody');
         
         if (inventory.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-message">No items yet. Capture a photo to get started!</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-message">No items yet. Start scanning!</td></tr>';
             document.getElementById('totalItems').innerText = '0';
             document.getElementById('totalQty').innerText = '0';
             return;
@@ -788,15 +872,15 @@
     }
 
     function clearAllData() {
-        if (confirm('⚠️ Delete ALL data? This cannot be undone.')) {
+        if (confirm('⚠️ Delete ALL data?')) {
             inventory = [];
             localStorage.setItem('inventory_data', JSON.stringify(inventory));
             renderTable();
-            alert('✅ All data cleared.');
+            alert('✅ Data cleared.');
         }
     }
 
-    // Initialize
+    // Initialize on load
     init();
 </script>
 
