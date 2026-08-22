@@ -3,485 +3,365 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detailed Inventory Scanner</title>
-    <!-- Fixed Tesseract.js CDN link -->
+    <title>Simple Inventory Scanner</title>
+    <!-- Tesseract.js for OCR -->
     <script src="https://unpkg.com/tesseract.js@v4/dist/tesseract.min.js"></script>
     <style>
+        * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
-            padding: 10px;
-            background-color: #f5f5f7;
-            color: #333;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
         .container {
-            max-width: 1000px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
-            padding: 15px;
             border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
         }
-        h2 { margin-top: 0; text-align: center; color: #007aff; font-size: 22px; }
-        h3 { color: #333; margin-top: 20px; border-bottom: 2px solid #007aff; padding-bottom: 8px; }
-        
-        .upload-section {
-            border: 2px dashed #007aff;
-            padding: 15px;
-            text-align: center;
-            border-radius: 8px;
-            background: #f0f7ff;
-            margin-bottom: 15px;
-        }
-        .file-label {
-            display: inline-block;
-            padding: 12px 20px;
-            background: #007aff;
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 15px;
+            padding: 30px;
+            text-align: center;
         }
-        input[type="file"] { display: none; }
-        #status { font-weight: bold; color: #666; margin: 8px 0; text-align: center; font-size: 14px; }
-        
-        .tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #eee;
-            flex-wrap: wrap;
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
         }
-        .tab-btn {
-            padding: 10px 20px;
-            background: none;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-weight: bold;
-            color: #666;
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
             font-size: 14px;
         }
-        .tab-btn.active {
-            border-bottom-color: #007aff;
-            color: #007aff;
+        .content {
+            padding: 30px;
         }
-        .tab-content {
-            display: none;
+        .scanner-section {
+            background: #f8f9ff;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
         }
-        .tab-content.active {
-            display: block;
+        .upload-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
         }
-        
-        label { font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #555; }
-        input[type="text"], input[type="number"], select, textarea {
-            width: 100%;
+        .upload-btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        input[type="file"] { display: none; }
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #333;
+            min-height: 20px;
+        }
+        .text-box {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #333;
+        }
+        .form-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group.full {
+            grid-column: span 2;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+            font-size: 13px;
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select {
             padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.2);
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 12px;
+            border: none;
             border-radius: 6px;
             font-size: 15px;
-            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
         }
-        
-        .btn-success {
-            width: 100%;
-            padding: 12px;
+        .btn-add {
             background: #34c759;
             color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 10px;
         }
-        .btn-success:hover { background: #2fa84e; }
-        
-        .btn-secondary {
-            width: 100%;
-            padding: 12px;
-            background: #5ac8fa;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 10px;
+        .btn-add:hover {
+            background: #2da84e;
         }
-        .btn-secondary:hover { background: #34c759; }
-        
-        .btn-danger {
-            background: #ff3b30;
-            width: 100%;
-        }
-        .btn-danger:hover { background: #d63026; }
-        
         .btn-export {
             background: #ff9500;
             color: white;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 10px;
-            font-size: 14px;
+            grid-column: 1;
         }
-        
-        .raw-output {
-            background: #eee;
-            padding: 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            max-height: 250px;
-            overflow-y: auto;
+        .btn-export:hover {
+            background: #e68900;
+        }
+        .btn-clear {
+            background: #ff3b30;
+            color: white;
+            grid-column: 2;
+        }
+        .btn-clear:hover {
+            background: #d63026;
+        }
+        h2 {
+            margin-top: 30px;
             margin-bottom: 15px;
             color: #333;
-            font-family: 'Courier New', monospace;
-            line-height: 1.5;
-            border: 1px solid #ccc;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
         }
-        
-        .review-section {
-            background: #fffbea;
-            border: 1px solid #ffc107;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .detected-items {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 12px;
-            margin-bottom: 15px;
-        }
-        
-        .item-card {
-            background: #f9f9f9;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 13px;
-            display: grid;
-            grid-template-columns: 30px 1fr;
-            gap: 10px;
-            align-items: start;
-        }
-        
-        .item-card.selected {
-            border-color: #007aff;
-            background: #f0f7ff;
-        }
-        
-        .item-card-checkbox {
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            accent-color: #007aff;
-            margin-top: 2px;
-        }
-        
-        .item-card-content {
+        .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
+            gap: 15px;
+            margin-bottom: 20px;
         }
-        
-        .item-field {
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-            border-left: 3px solid #007aff;
+        .stat-card {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
         }
-        .item-field-label {
+        .stat-value {
+            font-size: 24px;
             font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 12px;
             color: #666;
-            font-size: 11px;
-            text-transform: uppercase;
+            margin-top: 5px;
         }
-        .item-field-value {
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background: #f0f4ff;
             color: #333;
-            margin-top: 3px;
-            font-size: 13px;
-            word-break: break-word;
-        }
-        
-        .table-wrapper { overflow-x: auto; margin-top: 15px; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 13px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f2f2f2; position: sticky; top: 0; }
-        .delete-btn { color: #ff3b30; cursor: pointer; border: none; background: none; font-weight: bold; font-size: 16px; }
-        .delete-btn:hover { font-size: 18px; }
-        
-        .stats {
-            background: #f0f7ff;
             padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 13px;
-        }
-        
-        .stats-item {
-            display: inline-block;
-            margin-right: 20px;
-            margin-bottom: 8px;
-        }
-        
-        .stats-value {
+            text-align: left;
             font-weight: bold;
-            color: #007aff;
-            font-size: 16px;
+            border-bottom: 2px solid #667eea;
         }
-        
-        .config-section {
-            background: #f5f5f5;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 13px;
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
         }
-        
+        tr:hover {
+            background: #f9f9f9;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ff3b30;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+            font-weight: bold;
+        }
+        .delete-btn:hover {
+            transform: scale(1.2);
+        }
         .info-box {
             background: #e3f2fd;
             border-left: 4px solid #2196F3;
             padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
             font-size: 13px;
-            line-height: 1.6;
+            line-height: 1.5;
         }
-
-        .debug-box {
+        .warning-box {
             background: #fff3cd;
             border-left: 4px solid #ffc107;
             padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-size: 12px;
-            line-height: 1.6;
-        }
-        
-        .field-mapping {
-            background: white;
-            border: 1px solid #ddd;
             border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .field-mapping-row {
-            display: grid;
-            grid-template-columns: 150px 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-        
-        .field-mapping-label {
-            font-weight: bold;
-            color: #555;
-            font-size: 12px;
-        }
-
-        .buttons-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .select-controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .select-controls button {
-            padding: 10px;
+            margin-bottom: 20px;
             font-size: 13px;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            color: white;
+            line-height: 1.5;
         }
-
-        .select-all { background: #34c759; }
-        .select-all:hover { background: #2fa84e; }
-
-        .deselect-all { background: #ff9500; }
-        .deselect-all:hover { background: #e68900; }
-
-        .select-none { background: #ff3b30; }
-        .select-none:hover { background: #d63026; }
-
-        .manual-header-section {
-            background: #fff9e6;
-            border: 1px solid #ffc107;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            display: none;
-        }
-
-        .manual-header-section.show {
-            display: block;
+        .empty-message {
+            text-align: center;
+            color: #999;
+            padding: 30px;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📦 Advanced Inventory Scanner - Smart Detection</h2>
-    
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab(event, 'scan-tab')">📷 Scan & Extract</button>
-        <button class="tab-btn" onclick="switchTab(event, 'config-tab')">⚙️ Configure Fields</button>
-        <button class="tab-btn" onclick="switchTab(event, 'inventory-tab')">📊 Inventory List</button>
+    <div class="header">
+        <h1>📦 Smart Inventory Scanner</h1>
+        <p>Scan product labels and automatically extract information</p>
     </div>
 
-    <!-- SCAN & EXTRACT TAB -->
-    <div id="scan-tab" class="tab-content active">
-        <div class="info-box">
-            <strong>💡 How it works:</strong> Take a photo of your item table/list with columns (CODE, DESCRIPTION, BATCH NO, EXPIRY DATE, QTY, UOM, etc.). The scanner will automatically detect and extract all items from the table.
-        </div>
-
-        <div class="upload-section">
-            <label class="file-label">
-                📷 Scan Item Table/List
-                <input type="file" id="imageInput" accept="image/*">
+    <div class="content">
+        <!-- SCANNER SECTION -->
+        <div class="scanner-section">
+            <h3 style="margin-top: 0; color: #333;">📷 Scan Product Label</h3>
+            <label class="upload-btn">
+                📸 Choose Photo
+                <input type="file" id="imageInput" accept="image/*" capture="environment">
             </label>
-            <div id="status">Ready to scan item tables.</div>
+            <div id="status"></div>
         </div>
 
-        <label style="font-size:11px; color:#777;">📝 Raw Text Extracted from Image:</label>
-        <div id="rawLog" class="raw-output">No photo scanned yet.</div>
-
-        <div id="debugSection" class="debug-box" style="display: none;">
-            <strong>🔍 DEBUG INFO:</strong>
-            <div id="debugContent"></div>
+        <!-- RAW TEXT OUTPUT -->
+        <div>
+            <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block;">
+                📝 Raw Text Extracted:
+            </label>
+            <div id="rawLog" class="text-box">No image scanned yet. Photo text will appear here.</div>
         </div>
 
-        <div id="reviewSection" class="review-section" style="display: none;">
-            <h3>✅ Extracted Items</h3>
-            <div class="stats">
-                <div class="stats-item">Items Found: <span class="stats-value" id="detectedCount">0</span></div>
-                <div class="stats-item">Items Selected: <span class="stats-value" id="selectedCount">0</span></div>
-            </div>
-            
-            <div class="select-controls">
-                <button class="select-all" onclick="selectAllItems()">✓ Select All</button>
-                <button class="deselect-all" onclick="invertSelection()">⇄ Invert</button>
-                <button class="select-none" onclick="deselectAllItems()">✗ Deselect All</button>
-            </div>
-            
-            <div class="detected-items" id="detectedItems"></div>
-            
-            <div class="buttons-row">
-                <button class="btn-success" onclick="addSelectedItems()">✅ Save Selected Items</button>
-                <button class="btn-danger" onclick="discardScan()">❌ Clear & Rescan</button>
-            </div>
-        </div>
-
-        <div id="manualHeaderSection" class="manual-header-section">
-            <h3>⚙️ Manual Header Detection</h3>
-            <p>Couldn't find headers automatically? Help the scanner by identifying which line contains the column headers:</p>
-            <div id="headerLineOptions"></div>
-            <button class="btn-secondary" onclick="useManualHeader()">Confirm Header & Extract Items</button>
-        </div>
-    </div>
-
-    <!-- CONFIGURE FIELDS TAB -->
-    <div id="config-tab" class="tab-content">
-        <h3>⚙️ Configure Column Headers</h3>
-        
+        <!-- INFO BOX -->
         <div class="info-box">
-            <strong>📌 Instructions:</strong> Define the column headers that appear in your item table. Enter the exact header text or keywords that identify each column (case-insensitive).
+            ℹ️ <strong>How it works:</strong> Take a photo of any product label with visible text (code, description, batch number, expiry date, etc.). The scanner will extract the text and try to auto-fill the fields below. You can manually correct any errors before saving.
         </div>
-        
-        <div class="config-section">
-            <h4>Table Column Headers</h4>
-            <p style="color: #666; font-size: 12px; margin-bottom: 15px;">Enter the header names/keywords as they appear in your table (comma-separated alternatives).</p>
-            
-            <div class="field-mapping">
-                <div class="field-mapping-row">
-                    <div class="field-mapping-label">1️⃣ Code Column:</div>
-                    <input type="text" id="codeHeader" placeholder="e.g., CODE, SKU, ITEM CODE" style="width: 100%;">
-                </div>
-                <div style="font-size: 11px; color: #999;">Column header for product code/SKU</div>
-            </div>
-            
-            <div class="field-mapping">
-                <div class="field-mapping-row">
-                    <div class="field-mapping-label">2️⃣ Description Column:</div>
-                    <input type="text" id="nameHeader" placeholder="e.g., DESCRIPTION, PRODUCT, NAME, ITEM" style="width: 100%;">
-                </div>
-                <div style="font-size: 11px; color: #999;">Column header for product name/description</div>
-            </div>
-            
-            <div class="field-mapping">
-                <div class="field-mapping-row">
-                    <div class="field-mapping-label">3️⃣ Batch Column:</div>
-                    <input type="text" id="batchHeader" placeholder="e.g., BATCH NO, LOT, BATCH NUMBER" style="width: 100%;">
-                </div>
-                <div style="font-size: 11px; color: #999;">Column header for batch/lot number</div>
-            </div>
-            
-            <div class="field-mapping">
-                <div class="field-mapping-row">
-                    <div class="field-mapping-label">4️⃣ Expiry Column:</div>
-                    <input type="text" id="expiryHeader" placeholder="e.g., EXPIRY DATE, EXP DATE" style="width: 100%;">
-                </div>
-                <div style="font-size: 11px; color: #999;">Column header for expiry date</div>
-            </div>
-            
-            <div class="field-mapping">
-                <div class="field-mapping-row">
-                    <div class="field-mapping-label">5️⃣ Quantity Column:</div>
-                    <input type="text" id="qtyHeader" placeholder="e.g., QTY, QUANTITY, AMOUNT" style="width: 100%;">
-                </div>
-                <div style="font-size: 11px; color: #999;">Column header for quantity</div>
-            </div>
-            
-            <div class="field-mapping">
-                <div class="field-mapping-row">
-                    <div class="field-mapping-label">6️⃣ UOM Column:</div>
-                    <input type="text" id="uomHeader" placeholder="e.g., UOM, UNIT, PER" style="width: 100%;">
-                </div>
-                <div style="font-size: 11px; color: #999;">Column header for unit of measure</div>
-            </div>
-            
-            <button class="btn-secondary" onclick="saveConfiguration()">💾 Save Configuration</button>
-        </div>
-        
-        <div class="config-section">
-            <h4>📋 Your Current Configuration:</h4>
-            <pre id="configDisplay" style="background: white; padding: 12px; border-radius: 4px; font-size: 12px; overflow-x: auto; line-height: 1.6;"></pre>
-        </div>
-    </div>
 
-    <!-- INVENTORY LIST TAB -->
-    <div id="inventory-tab" class="tab-content">
-        <h3>📊 Saved Inventory</h3>
-        <div class="stats">
-            <div class="stats-item">Total Items: <span class="stats-value" id="totalItems">0</span></div>
-            <div class="stats-item">Total Units: <span class="stats-value" id="totalUnits">0</span></div>
+        <!-- FORM -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="itemCode">Product Code / SKU</label>
+                <input type="text" id="itemCode" placeholder="e.g., SKU-12345">
+            </div>
+
+            <div class="form-group">
+                <label for="itemBatch">Batch / Lot Number</label>
+                <input type="text" id="itemBatch" placeholder="e.g., B2409">
+            </div>
+
+            <div class="form-group full">
+                <label for="itemName">Product Description</label>
+                <input type="text" id="itemName" placeholder="Full product name and details">
+            </div>
+
+            <div class="form-group">
+                <label for="itemQty">Quantity</label>
+                <input type="number" id="itemQty" value="1" min="1">
+            </div>
+
+            <div class="form-group">
+                <label for="itemUom">Unit of Measure</label>
+                <select id="itemUom">
+                    <option value="Pcs">Pieces</option>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Pack">Pack</option>
+                    <option value="Box">Box</option>
+                    <option value="Carton">Carton</option>
+                    <option value="Kg">Kilogram</option>
+                    <option value="Liter">Liter</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="itemExpiry">Expiry Date</label>
+                <input type="text" id="itemExpiry" placeholder="YYYY-MM-DD or MM/DD/YYYY">
+            </div>
+
+            <div class="form-group">
+                <label for="itemReceive">Receive Date</label>
+                <input type="date" id="itemReceive">
+            </div>
         </div>
-        <button class="btn-export" onclick="exportToCSV()">📥 Export to CSV</button>
-        
+
+        <!-- BUTTONS -->
+        <div class="button-group">
+            <button class="btn btn-add" onclick="addToInventory()">✅ Save Item</button>
+            <button class="btn btn-add" onclick="clearForm()" style="background: #5ac8fa;">🔄 Clear Form</button>
+            <button class="btn btn-export" onclick="exportToCSV()">📥 Export to CSV</button>
+            <button class="btn btn-clear" onclick="clearAllData()">🗑️ Clear All Data</button>
+        </div>
+
+        <!-- INVENTORY TABLE -->
+        <h2>📊 Saved Inventory</h2>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalItems">0</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalQty">0</div>
+                <div class="stat-label">Total Quantity</div>
+            </div>
+        </div>
+
         <div class="table-wrapper">
-            <table id="inventoryTable">
+            <table>
                 <thead>
                     <tr>
                         <th>Code</th>
                         <th>Description</th>
-                        <th>Batch/Lot</th>
+                        <th>Batch</th>
                         <th>Qty</th>
                         <th>UOM</th>
                         <th>Expiry</th>
@@ -489,558 +369,215 @@
                         <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="inventoryBody"></tbody>
+                <tbody id="inventoryBody">
+                </tbody>
             </table>
         </div>
     </div>
 </div>
 
 <script>
-    // DEFAULT CONFIGURATION
-    const DEFAULT_CONFIG = {
-        codeHeader: 'CODE, CODE/REF, SKU, ITEM CODE',
-        nameHeader: 'DESCRIPTION, PRODUCT, NAME, ITEM, ITEM NAME',
-        batchHeader: 'BATCH NO, BATCH, LOT, L/N, BATCH NUMBER',
-        expiryHeader: 'EXPIRY DATE, EXPIRY, EXP, EXP DATE, BEST BEFORE, EXPIRY DATE/TIME',
-        qtyHeader: 'QTY, QUANTITY, COUNT, AMOUNT, QTY RECEIVED',
-        uomHeader: 'UOM, UNIT, TYPE, UNIT OF MEASURE, MEASURE'
-    };
-    
-    let inventory = JSON.parse(localStorage.getItem('detailed_inventory')) || [];
-    let detectedItems = [];
-    let selectedItems = new Set();
-    let lastRawText = '';
-    let lastLines = [];
-    let manualHeaderLineIndex = -1;
-    
-    // Initialize config
-    let config = null;
-    try {
-        const stored = localStorage.getItem('scanner_config');
-        config = stored ? JSON.parse(stored) : null;
-        
-        if (!config || Object.values(config).some(v => !v || v === 'undefined')) {
-            console.log('Config corrupted or missing - using defaults');
-            config = { ...DEFAULT_CONFIG };
-            localStorage.setItem('scanner_config', JSON.stringify(config));
-        }
-    } catch (e) {
-        console.log('Error loading config - using defaults:', e);
-        config = { ...DEFAULT_CONFIG };
-        localStorage.setItem('scanner_config', JSON.stringify(config));
-    }
-    
-    function switchTab(event, tabName) {
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        document.getElementById(tabName).classList.add('active');
-        event.target.classList.add('active');
-        
-        if (tabName === 'inventory-tab') {
-            updateInventoryStats();
-        }
-        
-        if (tabName === 'config-tab') {
-            loadConfigDisplay();
-            loadConfigurationFields();
-        }
-    }
-    
-    function loadConfigurationFields() {
-        document.getElementById('codeHeader').value = config.codeHeader || '';
-        document.getElementById('nameHeader').value = config.nameHeader || '';
-        document.getElementById('batchHeader').value = config.batchHeader || '';
-        document.getElementById('expiryHeader').value = config.expiryHeader || '';
-        document.getElementById('qtyHeader').value = config.qtyHeader || '';
-        document.getElementById('uomHeader').value = config.uomHeader || '';
-    }
-    
-    function loadConfigDisplay() {
-        const display = `Code Column Headers: ${config.codeHeader || 'Not set'}
-Description Column Headers: ${config.nameHeader || 'Not set'}
-Batch Column Headers: ${config.batchHeader || 'Not set'}
-Expiry Column Headers: ${config.expiryHeader || 'Not set'}
-Quantity Column Headers: ${config.qtyHeader || 'Not set'}
-UOM Column Headers: ${config.uomHeader || 'Not set'}`;
-        document.getElementById('configDisplay').innerText = display;
-    }
-    
-    function saveConfiguration() {
-        const newConfig = {
-            codeHeader: document.getElementById('codeHeader').value.trim() || DEFAULT_CONFIG.codeHeader,
-            nameHeader: document.getElementById('nameHeader').value.trim() || DEFAULT_CONFIG.nameHeader,
-            batchHeader: document.getElementById('batchHeader').value.trim() || DEFAULT_CONFIG.batchHeader,
-            expiryHeader: document.getElementById('expiryHeader').value.trim() || DEFAULT_CONFIG.expiryHeader,
-            qtyHeader: document.getElementById('qtyHeader').value.trim() || DEFAULT_CONFIG.qtyHeader,
-            uomHeader: document.getElementById('uomHeader').value.trim() || DEFAULT_CONFIG.uomHeader
-        };
-        
-        const isValid = Object.values(newConfig).every(v => v && v !== 'undefined' && v.length > 0);
-        if (!isValid) {
-            alert('⚠️ Invalid configuration. All fields must have values.');
-            return;
-        }
-        
-        config = newConfig;
-        localStorage.setItem('scanner_config', JSON.stringify(config));
-        alert('✅ Configuration saved successfully!');
-        loadConfigDisplay();
-    }
-    
-    function safeHeaderSplit(str) {
-        if (!str || str === 'undefined' || typeof str !== 'string') return [];
-        return str.split(',')
-            .map(h => h.trim())
-            .filter(h => h && h !== 'undefined' && h.length > 0);
-    }
+    let inventory = JSON.parse(localStorage.getItem('inventory_data')) || [];
 
-    function showDebugInfo(info) {
-        document.getElementById('debugSection').style.display = 'block';
-        document.getElementById('debugContent').innerHTML = '<pre>' + info + '</pre>';
-    }
-
-    function findHeaderLineAdvanced(lines) {
-        const codeHeaders = safeHeaderSplit(config.codeHeader);
-        
-        if (codeHeaders.length === 0) {
-            return -1;
-        }
-
-        let headerLineIndex = -1;
-
-        // Try to find exact match in first 10 lines
-        for (let i = 0; i < Math.min(lines.length, 10); i++) {
-            const upperLine = lines[i].toUpperCase();
-            for (let codeHeader of codeHeaders) {
-                if (codeHeader && upperLine.includes(codeHeader.toUpperCase())) {
-                    headerLineIndex = i;
-                    console.log(`Found header at line ${i}: "${lines[i]}"`);
-                    return headerLineIndex;
-                }
-            }
-        }
-
-        // If not found in first 10, return -1 and show manual selection
-        return -1;
-    }
-
-    function parseTableFormat(text, headerLineIndex) {
-        const items = [];
-        const lines = text.split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-
-        if (lines.length < 2 || headerLineIndex < 0 || headerLineIndex >= lines.length) {
-            return items;
-        }
-
-        const headerLine = lines[headerLineIndex];
-        const columnHeaders = detectColumns(headerLine);
-
-        for (let i = headerLineIndex + 1; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.length === 0 || /^[A-Z\s\-\/]+$/.test(line.substring(0, 30))) {
-                continue;
-            }
-
-            const item = extractItemFromLine(line, columnHeaders);
-            if (item.code || item.name) {
-                item.receive = new Date().toISOString().split('T')[0];
-                items.push(item);
-            }
-        }
-
-        return items;
-    }
-
-    function detectColumns(headerLine) {
-        const columns = {};
-        
-        const codeKeywords = safeHeaderSplit(config.codeHeader);
-        const nameKeywords = safeHeaderSplit(config.nameHeader);
-        const batchKeywords = safeHeaderSplit(config.batchHeader);
-        const expiryKeywords = safeHeaderSplit(config.expiryHeader);
-        const qtyKeywords = safeHeaderSplit(config.qtyHeader);
-        const uomKeywords = safeHeaderSplit(config.uomHeader);
-        
-        const upperHeader = headerLine.toUpperCase();
-        
-        const findPosition = (keywords) => {
-            for (let kw of keywords) {
-                if (kw) {
-                    const pos = upperHeader.indexOf(kw.toUpperCase());
-                    if (pos !== -1) return pos;
-                }
-            }
-            return -1;
-        };
-        
-        columns.codePos = findPosition(codeKeywords);
-        columns.namePos = findPosition(nameKeywords);
-        columns.batchPos = findPosition(batchKeywords);
-        columns.expiryPos = findPosition(expiryKeywords);
-        columns.qtyPos = findPosition(qtyKeywords);
-        columns.uomPos = findPosition(uomKeywords);
-
-        console.log('Column positions:', columns);
-        
-        return columns;
-    }
-
-    function extractItemFromLine(line, columns) {
-        const item = {
-            code: '',
-            name: '',
-            batch: '',
-            qty: 1,
-            uom: 'Pcs',
-            expiry: '',
-            receive: ''
-        };
-
-        if (line.includes('|')) {
-            const fields = line.split('|').map(f => f.trim());
-            
-            const sortedColumns = [
-                { type: 'code', pos: columns.codePos },
-                { type: 'name', pos: columns.namePos },
-                { type: 'batch', pos: columns.batchPos },
-                { type: 'expiry', pos: columns.expiryPos },
-                { type: 'qty', pos: columns.qtyPos },
-                { type: 'uom', pos: columns.uomPos }
-            ].sort((a, b) => (a.pos === -1 ? 999 : a.pos) - (b.pos === -1 ? 999 : b.pos));
-
-            fields.forEach((field, idx) => {
-                if (idx < sortedColumns.length && field) {
-                    const colType = sortedColumns[idx].type;
-                    const value = field.trim();
-                    
-                    if (colType === 'code') item.code = value;
-                    else if (colType === 'name') item.name = value;
-                    else if (colType === 'batch') item.batch = value;
-                    else if (colType === 'qty') item.qty = parseInt(value) || 1;
-                    else if (colType === 'uom') item.uom = value || 'Pcs';
-                    else if (colType === 'expiry') item.expiry = value;
-                }
-            });
-        }
-
-        return item;
-    }
-
-    function showManualHeaderSelection() {
-        const container = document.getElementById('headerLineOptions');
-        container.innerHTML = '';
-
-        const options = document.createElement('div');
-        options.style.display = 'grid';
-        options.style.gridTemplateColumns = '1fr';
-        options.style.gap = '8px';
-
-        lastLines.forEach((line, idx) => {
-            const label = document.createElement('label');
-            label.style.display = 'flex';
-            label.style.alignItems = 'center';
-            label.style.padding = '10px';
-            label.style.border = '1px solid #ddd';
-            label.style.borderRadius = '4px';
-            label.style.cursor = 'pointer';
-            label.style.backgroundColor = '#f9f9f9';
-
-            const radio = document.createElement('input');
-            radio.type = 'radio';
-            radio.name = 'headerLine';
-            radio.value = idx;
-            radio.style.marginRight = '10px';
-            radio.style.cursor = 'pointer';
-            radio.onchange = () => { manualHeaderLineIndex = idx; };
-
-            const text = document.createElement('div');
-            text.style.flex = '1';
-            text.style.wordBreak = 'break-word';
-            text.style.fontSize = '12px';
-            text.innerHTML = `<strong>Line ${idx}:</strong> ${line.substring(0, 100)}...`;
-
-            label.appendChild(radio);
-            label.appendChild(text);
-            options.appendChild(label);
-        });
-
-        container.appendChild(options);
-        document.getElementById('manualHeaderSection').classList.add('show');
-    }
-
-    function useManualHeader() {
-        if (manualHeaderLineIndex < 0) {
-            alert('Please select a header line');
-            return;
-        }
-
-        try {
-            detectedItems = parseTableFormat(lastRawText, manualHeaderLineIndex);
-            
-            if (detectedItems.length === 0) {
-                alert('No items found in this table format. Make sure the lines below the header contain pipe-separated data.');
-                return;
-            }
-
-            selectedItems.clear();
-            selectAllItems();
-            renderDetectedItems();
-            document.getElementById('reviewSection').style.display = 'block';
-            document.getElementById('manualHeaderSection').classList.remove('show');
-            document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
-        } catch (error) {
-            console.error('Parse Error:', error);
-            alert('❌ Error parsing items: ' + error.message);
-        }
-    }
-    
-    function renderDetectedItems() {
-        const container = document.getElementById('detectedItems');
-        container.innerHTML = '';
-        
-        detectedItems.forEach((item, idx) => {
-            const isSelected = selectedItems.has(idx);
-            const card = document.createElement('div');
-            card.className = `item-card ${isSelected ? 'selected' : ''}`;
-            card.innerHTML = `
-                <input type="checkbox" class="item-card-checkbox" ${isSelected ? 'checked' : ''} 
-                       onchange="toggleItemSelection(${idx})">
-                <div class="item-card-content">
-                    <div class="item-field">
-                        <div class="item-field-label">Code</div>
-                        <div class="item-field-value">${item.code || '—'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Description</div>
-                        <div class="item-field-value">${item.name || '—'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Batch No</div>
-                        <div class="item-field-value">${item.batch || '—'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Expiry Date</div>
-                        <div class="item-field-value">${item.expiry || '—'}</div>
-                    </div>
-                    <div class="item-field">
-                        <div class="item-field-label">Qty / UOM</div>
-                        <div class="item-field-value">${item.qty} ${item.uom}</div>
-                    </div>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-        
-        updateItemStats();
-    }
-    
-    function toggleItemSelection(idx) {
-        if (selectedItems.has(idx)) {
-            selectedItems.delete(idx);
-        } else {
-            selectedItems.add(idx);
-        }
-        renderDetectedItems();
-    }
-    
-    function selectAllItems() {
-        detectedItems.forEach((_, idx) => selectedItems.add(idx));
-        renderDetectedItems();
-    }
-    
-    function deselectAllItems() {
-        selectedItems.clear();
-        renderDetectedItems();
-    }
-
-    function invertSelection() {
-        const toRemove = [];
-        const toAdd = [];
-        
-        detectedItems.forEach((_, idx) => {
-            if (selectedItems.has(idx)) {
-                toRemove.push(idx);
-            } else {
-                toAdd.push(idx);
-            }
-        });
-        
-        toRemove.forEach(idx => selectedItems.delete(idx));
-        toAdd.forEach(idx => selectedItems.add(idx));
-        
-        renderDetectedItems();
-    }
-    
-    function updateItemStats() {
-        document.getElementById('detectedCount').innerText = detectedItems.length;
-        document.getElementById('selectedCount').innerText = selectedItems.size;
-    }
-    
-    function addSelectedItems() {
-        if (selectedItems.size === 0) {
-            alert('Please select at least one item.');
-            return;
-        }
-        
-        selectedItems.forEach(idx => {
-            inventory.push(detectedItems[idx]);
-        });
-        
-        localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
-        alert(`✅ Added ${selectedItems.size} items to inventory!`);
-        
-        discardScan();
+    // Initialize
+    function init() {
+        setTodayDate();
         renderTable();
     }
-    
-    function discardScan() {
-        detectedItems = [];
-        selectedItems.clear();
-        document.getElementById('reviewSection').style.display = 'none';
-        document.getElementById('debugSection').style.display = 'none';
-        document.getElementById('manualHeaderSection').classList.remove('show');
-        document.getElementById('rawLog').innerText = '';
-        document.getElementById('status').innerText = 'Ready to scan item tables.';
+
+    function setTodayDate() {
+        document.getElementById('itemReceive').valueAsDate = new Date();
     }
-    
-    document.getElementById('imageInput').addEventListener('change', function(e) {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        
-        const file = files[0];
-        document.getElementById('status').innerText = '🌀 Reading photo...';
-        document.getElementById('rawLog').innerText = 'Processing image...';
-        document.getElementById('debugSection').style.display = 'none';
-        
+
+    // OCR Scanner
+    document.getElementById('imageInput').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('status').innerText = '🌀 Processing image...';
+        document.getElementById('rawLog').innerText = 'Scanning...';
+
         const reader = new FileReader();
-        reader.onload = function(event) {
+        reader.onload = async function(event) {
             const imageDataUrl = event.target.result;
-            document.getElementById('status').innerText = '🌀 Scanning text... please wait 5-15 seconds...';
-            
-            Tesseract.recognize(imageDataUrl, 'eng')
-                .then(({ data: { text } }) => {
-                    document.getElementById('status').innerText = '✅ Scan complete! Extracting items...';
-                    
-                    lastRawText = text.trim();
-                    document.getElementById('rawLog').innerText = lastRawText || 'No readable text detected.';
-                    
-                    if (!lastRawText) {
-                        alert('Could not read any text from the image. Try with better lighting.');
-                        return;
-                    }
+            document.getElementById('status').innerText = '🌀 Extracting text (this takes 10-20 seconds)...';
 
-                    lastLines = lastRawText.split('\n')
-                        .map(line => line.trim())
-                        .filter(line => line.length > 0);
+            try {
+                const { data: { text } } = await Tesseract.recognize(imageDataUrl, 'eng');
+                
+                document.getElementById('status').innerText = '✅ Scan complete!';
+                
+                const cleanText = text.trim();
+                document.getElementById('rawLog').innerText = cleanText || 'No text detected. Try better lighting.';
 
-                    const headerIdx = findHeaderLineAdvanced(lastLines);
+                if (!cleanText) {
+                    document.getElementById('status').innerText = '⚠️ No text found in image.';
+                    return;
+                }
 
-                    if (headerIdx < 0) {
-                        // Show manual selection
-                        console.log('Could not auto-detect header. Showing manual options.');
-                        showDebugInfo(`Auto-detection failed.\nScanned ${lastLines.length} lines.\nPlease manually select which line contains the headers.`);
-                        showManualHeaderSelection();
-                        document.getElementById('status').innerText = '⚠️ Could not auto-detect headers. Please manually select the header line above.';
-                        return;
-                    }
+                // AUTO-FILL FORM
+                autoFillForm(cleanText);
 
-                    try {
-                        detectedItems = parseTableFormat(lastRawText, headerIdx);
-                        
-                        if (detectedItems.length === 0) {
-                            showDebugInfo(`Header found at line ${headerIdx}: "${lastLines[headerIdx]}"\nBut no items could be extracted.\nMake sure lines have pipe-separated format (|)`);
-                            alert('No items could be extracted. Check debug info below.');
-                            return;
-                        }
-
-                        selectedItems.clear();
-                        selectAllItems();
-                        renderDetectedItems();
-                        document.getElementById('reviewSection').style.display = 'block';
-                        document.getElementById('status').innerText = `✅ Found ${detectedItems.length} item(s)! Review and save.`;
-                    } catch (error) {
-                        console.error('Parse Error:', error);
-                        showDebugInfo(`Error: ${error.message}`);
-                        alert('❌ Error parsing items: ' + error.message);
-                        document.getElementById('status').innerText = '❌ Parse error. Check debug info.';
-                    }
-                })
-                .catch(err => {
-                    console.error('OCR Error:', err);
-                    document.getElementById('status').innerText = '❌ Scan error. Please try again.';
-                    showDebugInfo(`OCR Error: ${err.message}`);
-                });
+            } catch (error) {
+                console.error('OCR Error:', error);
+                document.getElementById('status').innerText = '❌ Scan failed: ' + error.message;
+            }
         };
-        
+
         reader.readAsDataURL(file);
     });
-    
+
+    function autoFillForm(text) {
+        // Store full text as description
+        document.getElementById('itemName').value = text.substring(0, 500).trim();
+
+        // Extract SKU/Code
+        const codeMatch = text.match(/(?:SKU|CODE|ID|ITEM)[#:\s-]*([A-Z0-9\-]{3,})/i);
+        if (codeMatch) {
+            document.getElementById('itemCode').value = codeMatch[1];
+        }
+
+        // Extract Batch/Lot Number
+        const batchMatch = text.match(/(?:BATCH|LOT|B\.N\.|L\.N\.)[#:\s-]*([A-Z0-9\-]{2,})/i);
+        if (batchMatch) {
+            document.getElementById('itemBatch').value = batchMatch[1];
+        }
+
+        // Extract Expiry Date (multiple formats)
+        const expiryMatch = text.match(/(?:EXP|EXPIRY|BEST BEFORE)[:\s-]*([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i);
+        if (expiryMatch) {
+            document.getElementById('itemExpiry').value = expiryMatch[1];
+        }
+
+        // Auto-detect UOM
+        if (/bottle/i.test(text)) {
+            document.getElementById('itemUom').value = 'Bottle';
+        } else if (/pack/i.test(text)) {
+            document.getElementById('itemUom').value = 'Pack';
+        } else if (/box/i.test(text)) {
+            document.getElementById('itemUom').value = 'Box';
+        } else if (/carton/i.test(text)) {
+            document.getElementById('itemUom').value = 'Carton';
+        }
+    }
+
+    function addToInventory() {
+        const code = document.getElementById('itemCode').value.trim();
+        const name = document.getElementById('itemName').value.trim();
+        const batch = document.getElementById('itemBatch').value.trim();
+        const qty = parseInt(document.getElementById('itemQty').value) || 1;
+        const uom = document.getElementById('itemUom').value;
+        const expiry = document.getElementById('itemExpiry').value.trim();
+        const receive = document.getElementById('itemReceive').value;
+
+        if (!name && !code) {
+            alert('⚠️ Please enter at least a Product Description or Code.');
+            return;
+        }
+
+        inventory.push({
+            code: code || '—',
+            name: name,
+            batch: batch || '—',
+            qty: qty,
+            uom: uom,
+            expiry: expiry || '—',
+            receive: receive
+        });
+
+        localStorage.setItem('inventory_data', JSON.stringify(inventory));
+        alert('✅ Item saved!');
+        clearForm();
+        renderTable();
+    }
+
+    function clearForm() {
+        document.getElementById('itemCode').value = '';
+        document.getElementById('itemName').value = '';
+        document.getElementById('itemBatch').value = '';
+        document.getElementById('itemQty').value = '1';
+        document.getElementById('itemUom').value = 'Pcs';
+        document.getElementById('itemExpiry').value = '';
+        setTodayDate();
+        document.getElementById('rawLog').innerText = '';
+        document.getElementById('status').innerText = '';
+    }
+
     function renderTable() {
         const tbody = document.getElementById('inventoryBody');
+        
+        if (inventory.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-message">No items yet. Scan a photo to get started!</td></tr>';
+            document.getElementById('totalItems').innerText = '0';
+            document.getElementById('totalQty').innerText = '0';
+            return;
+        }
+
         tbody.innerHTML = '';
+        let totalQty = 0;
+
         inventory.forEach((item, index) => {
-            const row = `<tr>
-                <td><b>${item.code || '-'}</b></td>
-                <td>${item.name || '-'}</td>
-                <td>${item.batch || '-'}</td>
-                <td>${item.qty}</td>
-                <td>${item.uom}</td>
-                <td>${item.expiry || '-'}</td>
-                <td>${item.receive || '-'}</td>
-                <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td>
-            </tr>`;
+            totalQty += item.qty;
+            const row = `
+                <tr>
+                    <td><strong>${item.code}</strong></td>
+                    <td>${item.name}</td>
+                    <td>${item.batch}</td>
+                    <td>${item.qty}</td>
+                    <td>${item.uom}</td>
+                    <td>${item.expiry}</td>
+                    <td>${item.receive}</td>
+                    <td><button class="delete-btn" onclick="deleteItem(${index})">❌</button></td>
+                </tr>
+            `;
             tbody.innerHTML += row;
         });
-        updateInventoryStats();
+
+        document.getElementById('totalItems').innerText = inventory.length;
+        document.getElementById('totalQty').innerText = totalQty;
     }
-    
-    function updateInventoryStats() {
-        const totalItems = inventory.length;
-        const totalUnits = inventory.reduce((sum, item) => sum + ((item.qty || 0)), 0);
-        document.getElementById('totalItems').innerText = totalItems;
-        document.getElementById('totalUnits').innerText = totalUnits;
-    }
-    
+
     function deleteItem(index) {
-        if(confirm('Delete this entry?')) {
+        if (confirm('Delete this item?')) {
             inventory.splice(index, 1);
-            localStorage.setItem('detailed_inventory', JSON.stringify(inventory));
+            localStorage.setItem('inventory_data', JSON.stringify(inventory));
             renderTable();
         }
     }
-    
+
     function exportToCSV() {
         if (inventory.length === 0) {
-            alert('Nothing to export yet!');
+            alert('No data to export!');
             return;
         }
-        let csvContent = 'data:text/csv;charset=utf-8,Code/Ref ID,Description/Item Name,Batch or Lot No,Quantity,UOM,Expiry Date,Receive Date\n';
+
+        let csv = 'Code,Description,Batch,Qty,UOM,Expiry,Received\n';
         inventory.forEach(item => {
-            let safeName = (item.name || '').replace(/"/g, '""');
-            let safeCode = (item.code || '').replace(/"/g, '""');
-            let safeBatch = (item.batch || '').replace(/"/g, '""');
-            csvContent += `"${safeCode}","${safeName}","${safeBatch}",${item.qty},"${item.uom}","${item.expiry}","${item.receive}"\n`;
+            csv += `"${item.code}","${item.name}","${item.batch}",${item.qty},"${item.uom}","${item.expiry}","${item.receive}"\n`;
         });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', 'inventory_report.csv');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
-    
-    // Initialize page
-    renderTable();
-    loadConfigDisplay();
+
+    function clearAllData() {
+        if (confirm('⚠️ Delete ALL inventory data? This cannot be undone.')) {
+            inventory = [];
+            localStorage.setItem('inventory_data', JSON.stringify(inventory));
+            renderTable();
+            alert('✅ All data cleared.');
+        }
+    }
+
+    // Initialize on load
+    init();
 </script>
+
 </body>
 </html>
