@@ -6,8 +6,6 @@
     <title>Smart Inventory Scanner</title>
     <!-- Tesseract.js for OCR -->
     <script src="https://unpkg.com/tesseract.js@v4/dist/tesseract.min.js"></script>
-    <!-- OpenCV for image preprocessing -->
-    <script async src="https://docs.opencv.org/4.5.2/opencv.js"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -126,15 +124,24 @@
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
-            max-height: 200px;
+            max-height: 250px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
-            font-size: 13px;
+            font-size: 12px;
             line-height: 1.6;
             white-space: pre-wrap;
             word-wrap: break-word;
             color: #222;
             background: #fafafa;
+        }
+        .extraction-info {
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            line-height: 1.6;
         }
         .form-section {
             display: grid;
@@ -312,7 +319,7 @@
 <div class="container">
     <div class="header">
         <h1>📷 Smart Product Scanner</h1>
-        <p>Capture or upload product labels for accurate text extraction</p>
+        <p>Capture product labels and extract specific product information</p>
     </div>
 
     <div class="content">
@@ -338,23 +345,32 @@
         <!-- TIPS -->
         <div class="tips">
             <strong>💡 Tips for best results:</strong><br>
-            ✓ Place label flat on a surface<br>
-            ✓ Ensure good lighting (avoid shadows)<br>
-            ✓ Keep text straight (not tilted)<br>
-            ✓ Capture text clearly and sharply
+            ✓ Make sure product name is visible on label<br>
+            ✓ Good lighting (avoid shadows and glare)<br>
+            ✓ Keep label straight and in focus<br>
+            ✓ Capture clear, readable text
         </div>
 
         <!-- RAW TEXT OUTPUT -->
         <div>
             <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block;">
-                📝 Extracted Text:
+                📝 Full Extracted Text:
             </label>
-            <div id="rawLog" class="text-box">Capture or upload a photo. Extracted text will appear here.</div>
+            <div id="rawLog" class="text-box">Capture or upload a photo. Full text will appear here.</div>
+        </div>
+
+        <!-- EXTRACTION INFO -->
+        <div class="extraction-info" id="extractionInfo" style="display: none;">
+            <strong>✅ Extracted Fields:</strong><br>
+            Code: <span id="extractedCode">—</span><br>
+            Description: <span id="extractedDesc">—</span><br>
+            Batch: <span id="extractedBatch">—</span><br>
+            Expiry: <span id="extractedExp">—</span>
         </div>
 
         <!-- INFO BOX -->
         <div class="info-box">
-            ℹ️ <strong>How it works:</strong> Use your camera to capture a product label, or upload an existing photo. The system will analyze the image and extract text. Review the extracted text and form fields, edit if needed, then save to inventory.
+            ℹ️ <strong>How it works:</strong> Capture a product label photo. The system extracts the product name/description (first 1-2 lines), SKU, batch number, and expiry date. Review and edit fields before saving.
         </div>
 
         <!-- FORM -->
@@ -371,7 +387,7 @@
 
             <div class="form-group full">
                 <label for="itemName">Product Description</label>
-                <input type="text" id="itemName" placeholder="Product name and details">
+                <input type="text" id="itemName" placeholder="Product name">
             </div>
 
             <div class="form-group">
@@ -546,14 +562,14 @@
             document.getElementById('status').innerText = `✅ Scan complete! (Confidence: ${Math.round(confidence)}%)`;
 
             const cleanText = text.trim();
-            document.getElementById('rawLog').innerText = cleanText || 'No readable text detected. Try better lighting or clearer image.';
+            document.getElementById('rawLog').innerText = cleanText || 'No readable text detected. Try better lighting.';
 
             if (!cleanText) {
                 document.getElementById('status').innerText = '⚠️ No text found. Please try a clearer image.';
                 return;
             }
 
-            // Auto-fill form
+            // Auto-fill form with smart extraction
             autoFillForm(cleanText);
 
         } catch (error) {
@@ -563,15 +579,39 @@
     }
 
     function autoFillForm(text) {
-        // Store full text
-        document.getElementById('itemName').value = text.substring(0, 300).trim();
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        
+        // Extract product description from first lines (not the whole text)
+        let description = '';
+        let descriptionLines = 0;
+        
+        for (let i = 0; i < lines.length && descriptionLines < 2; i++) {
+            const line = lines[i];
+            
+            // Skip lines that are clearly metadata (codes, dates, etc)
+            if (!/^[A-Z0-9\-]{3,}$/.test(line) && // Skip pure codes like "SKU123"
+                !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) && // Skip dates
+                !/batch|lot|exp|expiry|sku|code|id|item/i.test(line) && // Skip labels
+                line.length > 3) {
+                
+                if (description) {
+                    description += ' ' + line;
+                } else {
+                    description = line;
+                }
+                descriptionLines++;
+            }
+        }
+        
+        document.getElementById('itemName').value = description.substring(0, 200) || '';
 
-        // Extract Code/SKU - look for patterns
+        // Extract Code/SKU
         const codePatterns = [
             /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i,
             /CODE[:\s#-]*([A-Z0-9\-]{3,15})/i,
             /ID[:\s#-]*([A-Z0-9\-]{3,15})/i,
-            /ITEM[:\s#-]*([A-Z0-9\-]{3,15})/i
+            /ITEM[:\s#-]*([A-Z0-9\-]{3,15})/i,
+            /^([A-Z0-9\-]{5,15})$/m // Standalone code
         ];
         for (let pattern of codePatterns) {
             const match = text.match(pattern);
@@ -586,7 +626,8 @@
             /BATCH[:\s#-]*([A-Z0-9\-]{2,10})/i,
             /LOT[:\s#-]*([A-Z0-9\-]{2,10})/i,
             /B\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i,
-            /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i
+            /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i,
+            /BATCH\s*NO[:\s#-]*([A-Z0-9\-]{2,10})/i
         ];
         for (let pattern of batchPatterns) {
             const match = text.match(pattern);
@@ -598,8 +639,8 @@
 
         // Extract Expiry Date
         const datePatterns = [
-            /(?:EXP|EXPIRY|BEST BEFORE)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i,
-            /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})(?:\s|$)/
+            /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i,
+            /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{4})(?:\s|$)/
         ];
         for (let pattern of datePatterns) {
             const match = text.match(pattern);
@@ -609,8 +650,17 @@
             }
         }
 
+        // Extract Quantity (numbers with units like "100ml", "500g", "2pack")
+        const qtyMatch = text.match(/(\d+)\s*(?:ml|g|kg|l|pieces?|pcs?|pack|bottle|box)/i);
+        if (qtyMatch) {
+            const qty = parseInt(qtyMatch[1]);
+            if (qty > 0 && qty < 10000) {
+                document.getElementById('itemQty').value = qty;
+            }
+        }
+
         // Auto-detect UOM
-        if (/bottle|btl/i.test(text)) {
+        if (/bottle|btl|ml/i.test(text)) {
             document.getElementById('itemUom').value = 'Bottle';
         } else if (/pack|pkg/i.test(text)) {
             document.getElementById('itemUom').value = 'Pack';
@@ -619,6 +669,18 @@
         } else if (/carton|ctn/i.test(text)) {
             document.getElementById('itemUom').value = 'Carton';
         }
+
+        // Show extraction info
+        showExtractionInfo();
+    }
+
+    function showExtractionInfo() {
+        const infoDiv = document.getElementById('extractionInfo');
+        document.getElementById('extractedCode').innerText = document.getElementById('itemCode').value || '—';
+        document.getElementById('extractedDesc').innerText = document.getElementById('itemName').value || '—';
+        document.getElementById('extractedBatch').innerText = document.getElementById('itemBatch').value || '—';
+        document.getElementById('extractedExp').innerText = document.getElementById('itemExpiry').value || '—';
+        infoDiv.style.display = 'block';
     }
 
     function addToInventory() {
@@ -659,9 +721,10 @@
         document.getElementById('itemUom').value = 'Pcs';
         document.getElementById('itemExpiry').value = '';
         setTodayDate();
-        document.getElementById('rawLog').innerText = 'Capture or upload a photo. Extracted text will appear here.';
+        document.getElementById('rawLog').innerText = 'Capture or upload a photo. Full text will appear here.';
         document.getElementById('status').innerText = '';
         document.getElementById('cameraPreview').style.display = 'none';
+        document.getElementById('extractionInfo').style.display = 'none';
     }
 
     function renderTable() {
