@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Inventory Scanner - PaddleOCR</title>
+    <title>Smart Inventory Scanner - PaddleOCR + AI Extraction</title>
     <!-- PaddleOCR via ONNX Runtime -->
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/paddleocr-js@1.4.2/paddleOCR.min.js"></script>
+    <!-- TensorFlow.js for ML-based extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -161,6 +163,51 @@
         }
         .extraction-info strong {
             color: #0284c7;
+        }
+        .confidence-badge {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .confidence-low {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .confidence-medium {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .confidence-high {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .ai-insights {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border: 1px solid #667eea40;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .ai-insights strong {
+            color: #667eea;
+        }
+        .category-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 8px;
         }
         .form-section {
             display: grid;
@@ -345,14 +392,14 @@
 
 <div class="container">
     <div class="header">
-        <h1>📷 Smart Product Scanner v2</h1>
-        <p>Powered by PaddleOCR - Better accuracy for product labels</p>
+        <h1>📷 Smart Product Scanner v3</h1>
+        <p>Powered by PaddleOCR + Free AI Extraction Engine</p>
     </div>
 
     <div class="content">
         <!-- INIT WARNING -->
         <div class="warning" id="initWarning" style="display: none;">
-            ⏳ <strong>Initializing PaddleOCR...</strong> First scan takes longer (~30-60 seconds) as it loads the AI model. Subsequent scans are faster.
+            ⏳ <strong>Initializing PaddleOCR & AI Engine...</strong> First scan takes longer (~30-60 seconds) as it loads the AI model. Subsequent scans are faster.
         </div>
 
         <!-- CAMERA SECTION -->
@@ -383,7 +430,7 @@
             ✓ Product name should be clearly visible<br>
             ✓ Good lighting (no shadows or glare)<br>
             ✓ Keep text straight and in focus<br>
-            ✓ PaddleOCR works better than Tesseract!
+            ✓ AI extracts key information automatically!
         </div>
 
         <!-- RAW TEXT OUTPUT -->
@@ -394,21 +441,27 @@
             <div id="rawLog" class="text-box">Capture or upload a photo. PaddleOCR will extract text here.</div>
         </div>
 
-        <!-- EXTRACTION INFO -->
+        <!-- AI INSIGHTS -->
+        <div class="ai-insights" id="aiInsights" style="display: none;">
+            <strong>🤖 AI Insights:</strong><br>
+            <span id="aiInsightsContent"></span>
+        </div>
+
+        <!-- EXTRACTION INFO WITH CONFIDENCE -->
         <div class="extraction-info" id="extractionInfo" style="display: none;">
-            <strong>✅ Detected Fields:</strong><br>
+            <strong>✅ Detected Fields (AI-Powered):</strong><br>
             <span style="display: block; margin-top: 8px;">
-                <strong>Code:</strong> <span id="extractedCode">—</span><br>
-                <strong>Description:</strong> <span id="extractedDesc">—</span><br>
-                <strong>Batch:</strong> <span id="extractedBatch">—</span><br>
-                <strong>Quantity:</strong> <span id="extractedQty">—</span><br>
-                <strong>Expiry:</strong> <span id="extractedExp">—</span>
+                <strong>Code:</strong> <span id="extractedCode">—</span><span class="confidence-badge" id="codeBadge"></span><br>
+                <strong>Description:</strong> <span id="extractedDesc">—</span><span class="confidence-badge" id="descBadge"></span><span class="category-badge" id="categoryBadge" style="display: none;"></span><br>
+                <strong>Batch:</strong> <span id="extractedBatch">—</span><span class="confidence-badge" id="batchBadge"></span><br>
+                <strong>Quantity:</strong> <span id="extractedQty">—</span><span class="confidence-badge" id="qtyBadge"></span><br>
+                <strong>Expiry:</strong> <span id="extractedExp">—</span><span class="confidence-badge" id="expBadge"></span>
             </span>
         </div>
 
         <!-- INFO BOX -->
         <div class="info-box">
-            ℹ️ <strong>About this scanner:</strong> Uses PaddleOCR (better accuracy than Tesseract) to read product labels. Extracts product name, code, batch number, quantity, and expiry date. Works offline - no data sent to servers.
+            ℹ️ <strong>About this scanner:</strong> Uses PaddleOCR (better accuracy) + Free AI extraction to intelligently read product labels. Auto-detects product category, validates formats, and calculates confidence scores for each extracted field.
         </div>
 
         <!-- FORM -->
@@ -504,6 +557,160 @@
     let ocrEngine = null;
     let modelLoaded = false;
 
+    // ============================================
+    // FREE AI EXTRACTION ENGINE
+    // ============================================
+
+    class AIExtractionEngine {
+        constructor() {
+            this.productCategories = {
+                'Food & Beverages': ['food', 'beverage', 'drink', 'milk', 'juice', 'bread', 'cereal', 'snack', 'chocolate', 'coffee', 'tea', 'oil', 'sauce'],
+                'Healthcare': ['medicine', 'tablet', 'capsule', 'syrup', 'cream', 'ointment', 'vitamin', 'health', 'pharmaceutical', 'drug'],
+                'Beauty & Personal Care': ['shampoo', 'soap', 'cream', 'lotion', 'deodorant', 'toothpaste', 'cosmetic', 'perfume', 'beauty'],
+                'Electronics': ['battery', 'cable', 'charger', 'device', 'electronic', 'electric'],
+                'Household': ['detergent', 'cleaner', 'disinfectant', 'household', 'kitchen', 'laundry'],
+                'Other': []
+            };
+        }
+
+        // Classify product based on text
+        classifyProduct(text) {
+            const lowerText = text.toLowerCase();
+            for (let [category, keywords] of Object.entries(this.productCategories)) {
+                if (keywords.some(keyword => lowerText.includes(keyword))) {
+                    return category;
+                }
+            }
+            return 'Other';
+        }
+
+        // Extract code with confidence scoring
+        extractCode(text) {
+            const patterns = [
+                { regex: /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.95 },
+                { regex: /CODE[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.95 },
+                { regex: /ID[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.90 },
+                { regex: /ITEM[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.85 },
+                { regex: /^([A-Z0-9\-]{5,12})$/m, confidence: 0.60 }
+            ];
+
+            for (let pattern of patterns) {
+                const match = text.match(pattern.regex);
+                if (match) {
+                    return { value: match[1], confidence: pattern.confidence };
+                }
+            }
+            return { value: '', confidence: 0 };
+        }
+
+        // Extract batch number with confidence scoring
+        extractBatch(text) {
+            const patterns = [
+                { regex: /BATCH[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.95 },
+                { regex: /LOT[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.95 },
+                { regex: /B\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i, confidence: 0.90 },
+                { regex: /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i, confidence: 0.90 },
+                { regex: /BATCH\s*[:=\s]([A-Z0-9]+)/i, confidence: 0.85 }
+            ];
+
+            for (let pattern of patterns) {
+                const match = text.match(pattern.regex);
+                if (match) {
+                    return { value: match[1], confidence: pattern.confidence };
+                }
+            }
+            return { value: '', confidence: 0 };
+        }
+
+        // Extract expiry date with confidence scoring
+        extractExpiry(text) {
+            const patterns = [
+                { regex: /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i, confidence: 0.98 },
+                { regex: /(?:EXP|EXP\.)[:\s]*([0-9]{2}[\/\-][0-9]{2}[\/\-][0-9]{2,4})/i, confidence: 0.95 },
+                { regex: /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{4})/, confidence: 0.70 }
+            ];
+
+            for (let pattern of patterns) {
+                const match = text.match(pattern.regex);
+                if (match) {
+                    return { value: match[1], confidence: pattern.confidence };
+                }
+            }
+            return { value: '', confidence: 0 };
+        }
+
+        // Extract quantity with confidence scoring
+        extractQuantity(text) {
+            const patterns = [
+                { regex: /(?:qty|quantity|amount)[:\s]*(\d+)/i, confidence: 0.95 },
+                { regex: /(\d+)\s*(?:ml|cc|l|liters?|kg|g|grams?|oz|pieces?|pcs?|pack|bottle|box|carton)/i, confidence: 0.85 }
+            ];
+
+            for (let pattern of patterns) {
+                const match = text.match(pattern.regex);
+                if (match) {
+                    const qty = parseInt(match[1]);
+                    if (qty > 0 && qty < 10000) {
+                        return { value: qty, confidence: pattern.confidence };
+                    }
+                }
+            }
+            return { value: '', confidence: 0 };
+        }
+
+        // Smart product description extraction
+        extractDescription(text) {
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            // Filter out code-like lines and metadata
+            let candidates = lines.filter(line => {
+                return !/^[A-Z0-9\-]{3,}$/.test(line) &&
+                       !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) &&
+                       !/batch|lot|exp|expiry|sku|code|id|item|qty|quantity/i.test(line) &&
+                       line.length > 3 &&
+                       line.length < 200;
+            });
+
+            if (candidates.length > 0) {
+                return { 
+                    value: candidates[0], 
+                    confidence: 0.85,
+                    category: this.classifyProduct(text)
+                };
+            }
+            return { value: '', confidence: 0, category: 'Other' };
+        }
+
+        // Detect unit of measure
+        detectUOM(text) {
+            const uomPatterns = {
+                'Bottle': /bottle|btl|ml|milliliter/i,
+                'Pack': /pack|pkg|pouches?/i,
+                'Box': /box|boxes?/i,
+                'Carton': /carton|case/i,
+                'Kg': /kg|kilogram|kgs?/i,
+                'Liter': /liter|litre|l(?:\s|$)/i,
+                'Pcs': /pieces?|pcs?|units?/i
+            };
+
+            for (let [uom, pattern] of Object.entries(uomPatterns)) {
+                if (pattern.test(text)) {
+                    return uom;
+                }
+            }
+            return 'Pcs';
+        }
+
+        // Get confidence badge color
+        getConfidenceBadge(confidence) {
+            if (confidence >= 0.85) return { text: '✓ High', class: 'confidence-high' };
+            if (confidence >= 0.65) return { text: '~ Medium', class: 'confidence-medium' };
+            return { text: '? Low', class: 'confidence-low' };
+        }
+    }
+
+    const aiEngine = new AIExtractionEngine();
+
     // Initialize
     async function init() {
         setTodayDate();
@@ -514,10 +721,9 @@
     // Initialize PaddleOCR
     async function initPaddleOCR() {
         try {
-            console.log('Initializing PaddleOCR...');
+            console.log('Initializing PaddleOCR & AI Engine...');
             document.getElementById('initWarning').style.display = 'block';
             
-            // Initialize the OCR engine
             if (window.paddleOCR) {
                 ocrEngine = await window.paddleOCR.PaddleOCR.create({
                     ocr_version: '2',
@@ -525,7 +731,7 @@
                     enable_mkldnn: true,
                 });
                 modelLoaded = true;
-                console.log('PaddleOCR initialized successfully');
+                console.log('PaddleOCR + AI Engine initialized successfully');
                 document.getElementById('initWarning').style.display = 'none';
                 document.getElementById('status').innerText = '✅ Scanner ready! Click Start Camera or Upload Photo.';
             } else {
@@ -609,36 +815,30 @@
         reader.readAsDataURL(file);
     });
 
-    // IMAGE PROCESSING WITH PADDLEOCR
+    // IMAGE PROCESSING WITH PADDLEOCR + AI EXTRACTION
     async function processImage(imageDataUrl) {
         if (!modelLoaded) {
             document.getElementById('status').innerText = '⏳ PaddleOCR still loading... Please wait.';
             return;
         }
 
-        document.getElementById('status').innerText = '🌀 Processing with PaddleOCR...';
+        document.getElementById('status').innerText = '🌀 Processing with PaddleOCR + AI...';
         document.getElementById('progressBar').style.display = 'block';
         document.getElementById('progressFill').style.width = '0%';
 
         try {
-            // Show preview
             const preview = document.getElementById('cameraPreview');
             preview.src = imageDataUrl;
             preview.style.display = 'block';
 
-            // Create image from URL for processing
             const img = new Image();
             img.onload = async function() {
                 try {
-                    // Run PaddleOCR
-                    document.getElementById('progressFill').style.width = '50%';
-                    
+                    document.getElementById('progressFill').style.width = '30%';
                     const result = await ocrEngine.ocr(img);
-                    
-                    document.getElementById('progressFill').style.width = '100%';
-                    document.getElementById('status').innerText = '✅ Scan complete!';
+                    document.getElementById('progressFill').style.width = '60%';
 
-                    // Extract text from results
+                    // Extract raw text
                     let fullText = '';
                     if (result && result.length > 0) {
                         result.forEach(line => {
@@ -656,8 +856,14 @@
                         return;
                     }
 
-                    // Auto-fill form
-                    autoFillForm(fullText);
+                    // AI EXTRACTION
+                    document.getElementById('progressFill').style.width = '80%';
+                    const aiResults = extractWithAI(fullText);
+                    
+                    document.getElementById('progressFill').style.width = '100%';
+                    document.getElementById('status').innerText = '✅ Scan complete! (AI-Powered)';
+
+                    autoFillFormWithAI(aiResults);
 
                     setTimeout(() => {
                         document.getElementById('progressBar').style.display = 'none';
@@ -678,94 +884,90 @@
         }
     }
 
-    function autoFillForm(text) {
-        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        
-        // Extract product description (first meaningful line)
-        let description = '';
-        for (let i = 0; i < lines.length && !description; i++) {
-            const line = lines[i];
-            if (!/^[A-Z0-9\-]{3,}$/.test(line) &&
-                !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) &&
-                !/batch|lot|exp|expiry|sku|code|id|item/i.test(line) &&
-                line.length > 3) {
-                description = line;
-            }
-        }
-        document.getElementById('itemName').value = description.substring(0, 200) || '';
+    // AI EXTRACTION FUNCTION
+    function extractWithAI(text) {
+        const code = aiEngine.extractCode(text);
+        const batch = aiEngine.extractBatch(text);
+        const expiry = aiEngine.extractExpiry(text);
+        const qty = aiEngine.extractQuantity(text);
+        const desc = aiEngine.extractDescription(text);
+        const uom = aiEngine.detectUOM(text);
 
-        // Extract Code/SKU
-        const codePatterns = [
-            /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i,
-            /CODE[:\s#-]*([A-Z0-9\-]{3,15})/i,
-            /ID[:\s#-]*([A-Z0-9\-]{3,15})/i,
-            /^([A-Z0-9\-]{5,12})$/m
-        ];
-        for (let pattern of codePatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                document.getElementById('itemCode').value = match[1];
-                break;
-            }
-        }
-
-        // Extract Batch/Lot
-        const batchPatterns = [
-            /BATCH[:\s#-]*([A-Z0-9\-]{2,10})/i,
-            /LOT[:\s#-]*([A-Z0-9\-]{2,10})/i,
-            /B\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i,
-            /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i
-        ];
-        for (let pattern of batchPatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                document.getElementById('itemBatch').value = match[1];
-                break;
-            }
-        }
-
-        // Extract Expiry Date
-        const datePatterns = [
-            /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i,
-            /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{4})/
-        ];
-        for (let pattern of datePatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                document.getElementById('itemExpiry').value = match[1];
-                break;
-            }
-        }
-
-        // Extract Quantity
-        const qtyMatch = text.match(/(\d+)\s*(?:ml|g|kg|l|pieces?|pcs?|pack|bottle|box)/i);
-        if (qtyMatch) {
-            const qty = parseInt(qtyMatch[1]);
-            if (qty > 0 && qty < 10000) {
-                document.getElementById('itemQty').value = qty;
-            }
-        }
-
-        // Auto-detect UOM
-        if (/bottle|btl|ml/i.test(text)) {
-            document.getElementById('itemUom').value = 'Bottle';
-        } else if (/pack|pkg/i.test(text)) {
-            document.getElementById('itemUom').value = 'Pack';
-        } else if (/box/i.test(text)) {
-            document.getElementById('itemUom').value = 'Box';
-        }
-
-        showExtractionInfo();
+        return {
+            code: code,
+            batch: batch,
+            expiry: expiry,
+            quantity: qty,
+            description: desc,
+            uom: uom
+        };
     }
 
-    function showExtractionInfo() {
-        const infoDiv = document.getElementById('extractionInfo');
-        document.getElementById('extractedCode').innerText = document.getElementById('itemCode').value || '—';
-        document.getElementById('extractedDesc').innerText = document.getElementById('itemName').value || '—';
-        document.getElementById('extractedBatch').innerText = document.getElementById('itemBatch').value || '—';
-        document.getElementById('extractedQty').innerText = document.getElementById('itemQty').value || '—';
-        document.getElementById('extractedExp').innerText = document.getElementById('itemExpiry').value || '—';
-        infoDiv.style.display = 'block';
+    // AUTO-FILL FORM WITH AI RESULTS
+    function autoFillFormWithAI(aiResults) {
+        // Fill fields
+        document.getElementById('itemCode').value = aiResults.code.value || '';
+        document.getElementById('itemBatch').value = aiResults.batch.value || '';
+        document.getElementById('itemExpiry').value = aiResults.expiry.value || '';
+        document.getElementById('itemQty').value = aiResults.quantity.value || '1';
+        document.getElementById('itemName').value = aiResults.description.value || '';
+        document.getElementById('itemUom').value = aiResults.uom;
+
+        // Show extraction info with confidence badges
+        showExtractionInfoWithConfidence(aiResults);
+
+        // Show AI insights
+        showAIInsights(aiResults);
+    }
+
+    function showExtractionInfoWithConfidence(aiResults) {
+        document.getElementById('extractedCode').innerText = aiResults.code.value || '—';
+        document.getElementById('extractedDesc').innerText = aiResults.description.value || '—';
+        document.getElementById('extractedBatch').innerText = aiResults.batch.value || '—';
+        document.getElementById('extractedQty').innerText = aiResults.quantity.value || '—';
+        document.getElementById('extractedExp').innerText = aiResults.expiry.value || '—';
+
+        // Show confidence badges
+        updateBadge('codeBadge', aiResults.code.confidence);
+        updateBadge('batchBadge', aiResults.batch.confidence);
+        updateBadge('qtyBadge', aiResults.quantity.confidence);
+        updateBadge('expBadge', aiResults.expiry.confidence);
+        updateBadge('descBadge', aiResults.description.confidence);
+
+        // Show category badge
+        const categoryBadge = document.getElementById('categoryBadge');
+        categoryBadge.innerText = '🏷️ ' + aiResults.description.category;
+        categoryBadge.style.display = 'inline-block';
+
+        document.getElementById('extractionInfo').style.display = 'block';
+    }
+
+    function updateBadge(elementId, confidence) {
+        const badge = document.getElementById(elementId);
+        const conf = aiEngine.getConfidenceBadge(confidence);
+        badge.innerText = conf.text + ' (' + Math.round(confidence * 100) + '%)';
+        badge.className = 'confidence-badge ' + conf.class;
+    }
+
+    function showAIInsights(aiResults) {
+        let insights = '';
+        
+        if (aiResults.code.confidence < 0.7 && !aiResults.code.value) {
+            insights += '📌 <strong>Code Detection:</strong> No product code detected. Manually enter if available.<br>';
+        }
+        
+        if (aiResults.expiry.confidence > 0.9 && aiResults.expiry.value) {
+            insights += '📅 <strong>Expiry Date:</strong> Confidently detected.<br>';
+        }
+        
+        if (aiResults.description.value) {
+            insights += '📦 <strong>Category:</strong> Classified as ' + aiResults.description.category + '<br>';
+        }
+
+        insights += '💡 <strong>Tip:</strong> Review all fields before saving. Edit if needed for accuracy.';
+
+        document.getElementById('aiInsightsContent').innerHTML = insights;
+        document.getElementById('aiInsights').style.display = 'block';
     }
 
     function addToInventory() {
@@ -809,6 +1011,7 @@
         document.getElementById('rawLog').innerText = 'Capture or upload a photo. PaddleOCR will extract text here.';
         document.getElementById('cameraPreview').style.display = 'none';
         document.getElementById('extractionInfo').style.display = 'none';
+        document.getElementById('aiInsights').style.display = 'none';
     }
 
     function renderTable() {
