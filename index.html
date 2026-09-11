@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Inventory Scanner - PaddleOCR + AI Extraction</title>
-    <!-- Tesseract.js as fallback (more reliable) -->
+    <title>Smart Inventory Scanner - AI-Powered Extraction</title>
+    <!-- Tesseract.js for OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v4/dist/tesseract.min.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -133,33 +133,36 @@
             width: 0%;
             transition: width 0.3s;
         }
-        .text-box {
-            background: white;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            max-height: 250px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: #222;
-            background: #fafafa;
-        }
         .extraction-info {
             background: #f0f9ff;
             border-left: 4px solid #0ea5e9;
-            padding: 12px;
+            padding: 15px;
             border-radius: 6px;
             margin-bottom: 15px;
-            font-size: 12px;
-            line-height: 1.6;
+            font-size: 13px;
+            line-height: 1.8;
         }
         .extraction-info strong {
             color: #0284c7;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .extraction-field {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: white;
+            border-left: 3px solid #0ea5e9;
+            border-radius: 3px;
+        }
+        .extraction-field .label {
+            font-weight: bold;
+            color: #0284c7;
+            font-size: 12px;
+        }
+        .extraction-field .value {
+            color: #333;
+            margin-left: 8px;
         }
         .confidence-badge {
             display: inline-block;
@@ -167,9 +170,9 @@
             color: #2e7d32;
             padding: 2px 8px;
             border-radius: 12px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
-            margin-left: 8px;
+            margin-left: 5px;
         }
         .confidence-low {
             background: #ffebee;
@@ -195,6 +198,8 @@
         }
         .ai-insights strong {
             color: #667eea;
+            display: block;
+            margin-bottom: 8px;
         }
         .category-badge {
             display: inline-block;
@@ -389,14 +394,14 @@
 
 <div class="container">
     <div class="header">
-        <h1>📷 Smart Product Scanner v3</h1>
-        <p>Powered by AI-Powered Text Extraction + Free Intelligence</p>
+        <h1>📷 Smart Product Scanner v4</h1>
+        <p>AI-Powered Extraction - Only Gets What You Need</p>
     </div>
 
     <div class="content">
         <!-- INIT WARNING -->
         <div class="warning" id="initWarning" style="display: none;">
-            ⏳ <strong>Initializing OCR Engine...</strong> First scan takes longer (~15-30 seconds) as it loads the model. Subsequent scans are faster.
+            ⏳ <strong>Initializing OCR Engine...</strong> First scan takes 15-30 seconds. Subsequent scans are faster.
         </div>
 
         <!-- CAMERA SECTION -->
@@ -424,41 +429,57 @@
         <!-- TIPS -->
         <div class="tips">
             <strong>💡 Tips for best results:</strong><br>
-            ✓ Product name should be clearly visible<br>
+            ✓ Product label should be clearly visible<br>
             ✓ Good lighting (no shadows or glare)<br>
             ✓ Keep text straight and in focus<br>
-            ✓ AI extracts key information automatically!
+            ✓ AI automatically extracts only what's needed!
         </div>
 
-        <!-- RAW TEXT OUTPUT -->
-        <div>
-            <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block;">
-                📝 Full Extracted Text:
-            </label>
-            <div id="rawLog" class="text-box">Capture or upload a photo. OCR will extract text here.</div>
+        <!-- AI EXTRACTION RESULTS (Main Focus) -->
+        <div class="extraction-info" id="extractionInfo" style="display: none;">
+            <strong>✅ AI-Extracted Information:</strong>
+            
+            <div class="extraction-field">
+                <span class="label">📦 Product Name</span>
+                <span class="value" id="extractedDesc">—</span>
+                <span class="confidence-badge" id="descBadge"></span>
+                <span class="category-badge" id="categoryBadge" style="display: none;"></span>
+            </div>
+
+            <div class="extraction-field">
+                <span class="label">🔐 Product Code / SKU</span>
+                <span class="value" id="extractedCode">—</span>
+                <span class="confidence-badge" id="codeBadge"></span>
+            </div>
+
+            <div class="extraction-field">
+                <span class="label">📋 Batch / Lot Number</span>
+                <span class="value" id="extractedBatch">—</span>
+                <span class="confidence-badge" id="batchBadge"></span>
+            </div>
+
+            <div class="extraction-field">
+                <span class="label">📊 Quantity</span>
+                <span class="value" id="extractedQty">—</span>
+                <span class="confidence-badge" id="qtyBadge"></span>
+            </div>
+
+            <div class="extraction-field">
+                <span class="label">📅 Expiry Date</span>
+                <span class="value" id="extractedExp">—</span>
+                <span class="confidence-badge" id="expBadge"></span>
+            </div>
         </div>
 
         <!-- AI INSIGHTS -->
         <div class="ai-insights" id="aiInsights" style="display: none;">
-            <strong>🤖 AI Insights:</strong><br>
+            <strong>🤖 AI Analysis:</strong>
             <span id="aiInsightsContent"></span>
-        </div>
-
-        <!-- EXTRACTION INFO WITH CONFIDENCE -->
-        <div class="extraction-info" id="extractionInfo" style="display: none;">
-            <strong>✅ Detected Fields (AI-Powered):</strong><br>
-            <span style="display: block; margin-top: 8px;">
-                <strong>Code:</strong> <span id="extractedCode">—</span><span class="confidence-badge" id="codeBadge"></span><br>
-                <strong>Description:</strong> <span id="extractedDesc">—</span><span class="confidence-badge" id="descBadge"></span><span class="category-badge" id="categoryBadge" style="display: none;"></span><br>
-                <strong>Batch:</strong> <span id="extractedBatch">—</span><span class="confidence-badge" id="batchBadge"></span><br>
-                <strong>Quantity:</strong> <span id="extractedQty">—</span><span class="confidence-badge" id="qtyBadge"></span><br>
-                <strong>Expiry:</strong> <span id="extractedExp">—</span><span class="confidence-badge" id="expBadge"></span>
-            </span>
         </div>
 
         <!-- INFO BOX -->
         <div class="info-box">
-            ℹ️ <strong>About this scanner:</strong> Uses OCR technology + Free AI extraction to intelligently read product labels. Auto-detects product category, validates formats, and calculates confidence scores for each extracted field.
+            ℹ️ <strong>How it works:</strong> Camera captures product label → AI extracts only needed fields (code, name, batch, qty, expiry) → Shows confidence level for each field → Auto-fills form for quick saving.
         </div>
 
         <!-- FORM -->
@@ -554,18 +575,30 @@
     let modelLoaded = false;
 
     // ============================================
-    // FREE AI EXTRACTION ENGINE
+    // SMART AI EXTRACTION ENGINE
     // ============================================
 
-    class AIExtractionEngine {
+    class SmartAIExtractor {
         constructor() {
             this.productCategories = {
                 'Food & Beverages': ['food', 'beverage', 'drink', 'milk', 'juice', 'bread', 'cereal', 'snack', 'chocolate', 'coffee', 'tea', 'oil', 'sauce', 'water', 'yogurt', 'butter'],
                 'Healthcare': ['medicine', 'tablet', 'capsule', 'syrup', 'cream', 'ointment', 'vitamin', 'health', 'pharmaceutical', 'drug', 'medical'],
                 'Beauty & Personal Care': ['shampoo', 'soap', 'cream', 'lotion', 'deodorant', 'toothpaste', 'cosmetic', 'perfume', 'beauty', 'hair', 'face'],
                 'Electronics': ['battery', 'cable', 'charger', 'device', 'electronic', 'electric', 'phone', 'computer'],
-                'Household': ['detergent', 'cleaner', 'disinfectant', 'household', 'kitchen', 'laundry', 'paper'],
-                'Other': []
+                'Household': ['detergent', 'cleaner', 'disinfectant', 'household', 'kitchen', 'laundry', 'paper']
+            };
+        }
+
+        // Extract ONLY needed information
+        extractNeededInfo(text) {
+            return {
+                code: this.smartExtractCode(text),
+                name: this.smartExtractName(text),
+                batch: this.smartExtractBatch(text),
+                qty: this.smartExtractQty(text),
+                expiry: this.smartExtractExpiry(text),
+                uom: this.detectUOM(text),
+                category: this.classifyProduct(text)
             };
         }
 
@@ -579,13 +612,13 @@
             return 'Other';
         }
 
-        extractCode(text) {
+        // Smart Code Extraction - Only extracts if HIGH confidence
+        smartExtractCode(text) {
             const patterns = [
-                { regex: /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.95 },
-                { regex: /CODE[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.95 },
-                { regex: /ID[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.90 },
-                { regex: /ITEM[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.85 },
-                { regex: /^([A-Z0-9\-]{5,12})$/m, confidence: 0.60 }
+                { regex: /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.98 },
+                { regex: /CODE[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.98 },
+                { regex: /ITEM[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.95 },
+                { regex: /ID[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.90 }
             ];
 
             for (let pattern of patterns) {
@@ -597,13 +630,13 @@
             return { value: '', confidence: 0 };
         }
 
-        extractBatch(text) {
+        // Smart Batch Extraction
+        smartExtractBatch(text) {
             const patterns = [
-                { regex: /BATCH[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.95 },
-                { regex: /LOT[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.95 },
-                { regex: /B\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i, confidence: 0.90 },
-                { regex: /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i, confidence: 0.90 },
-                { regex: /BATCH\s*[:=\s]([A-Z0-9]+)/i, confidence: 0.85 }
+                { regex: /BATCH[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.98 },
+                { regex: /LOT[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.98 },
+                { regex: /B\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i, confidence: 0.95 },
+                { regex: /L\.N\.[:\s#-]*([A-Z0-9\-]{2,10})/i, confidence: 0.95 }
             ];
 
             for (let pattern of patterns) {
@@ -615,11 +648,11 @@
             return { value: '', confidence: 0 };
         }
 
-        extractExpiry(text) {
+        // Smart Expiry Extraction - HIGH confidence only
+        smartExtractExpiry(text) {
             const patterns = [
-                { regex: /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i, confidence: 0.98 },
-                { regex: /(?:EXP|EXP\.)[:\s]*([0-9]{2}[\/\-][0-9]{2}[\/\-][0-9]{2,4})/i, confidence: 0.95 },
-                { regex: /([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{4})/, confidence: 0.70 }
+                { regex: /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i, confidence: 0.99 },
+                { regex: /(?:EXP|EXP\.)[:\s]*([0-9]{2}[\/\-][0-9]{2}[\/\-][0-9]{2,4})/i, confidence: 0.95 }
             ];
 
             for (let pattern of patterns) {
@@ -631,10 +664,11 @@
             return { value: '', confidence: 0 };
         }
 
-        extractQuantity(text) {
+        // Smart Quantity Extraction
+        smartExtractQty(text) {
             const patterns = [
                 { regex: /(?:qty|quantity|amount)[:\s]*(\d+)/i, confidence: 0.95 },
-                { regex: /(\d+)\s*(?:ml|cc|l|liters?|kg|g|grams?|oz|pieces?|pcs?|pack|bottle|box|carton)/i, confidence: 0.85 }
+                { regex: /(\d+)\s*(?:ml|cc|l|liters?|kg|g|grams?|oz|pieces?|pcs?|pack|bottle|box|carton)/i, confidence: 0.90 }
             ];
 
             for (let pattern of patterns) {
@@ -649,13 +683,15 @@
             return { value: '', confidence: 0 };
         }
 
-        extractDescription(text) {
+        // Smart Product Name Extraction
+        smartExtractName(text) {
             const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
             
+            // Get the longest, most descriptive line
             let candidates = lines.filter(line => {
                 return !/^[A-Z0-9\-]{3,}$/.test(line) &&
                        !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) &&
-                       !/batch|lot|exp|expiry|sku|code|id|item|qty|quantity/i.test(line) &&
+                       !/batch|lot|exp|expiry|sku|code|id|item|qty|quantity|ml|g|kg|l|bottle|box|pack/i.test(line) &&
                        line.length > 3 &&
                        line.length < 200;
             });
@@ -663,11 +699,10 @@
             if (candidates.length > 0) {
                 return { 
                     value: candidates[0], 
-                    confidence: 0.85,
-                    category: this.classifyProduct(text)
+                    confidence: 0.90
                 };
             }
-            return { value: '', confidence: 0, category: 'Other' };
+            return { value: '', confidence: 0 };
         }
 
         detectUOM(text) {
@@ -690,13 +725,13 @@
         }
 
         getConfidenceBadge(confidence) {
-            if (confidence >= 0.85) return { text: '✓ High', class: 'confidence-high' };
-            if (confidence >= 0.65) return { text: '~ Medium', class: 'confidence-medium' };
-            return { text: '? Low', class: 'confidence-low' };
+            if (confidence >= 0.90) return { text: '✓ Confident', class: 'confidence-high' };
+            if (confidence >= 0.70) return { text: '⚠ Fair', class: 'confidence-medium' };
+            return { text: '? Uncertain', class: 'confidence-low' };
         }
     }
 
-    const aiEngine = new AIExtractionEngine();
+    const aiExtractor = new SmartAIExtractor();
 
     async function init() {
         setTodayDate();
@@ -706,14 +741,13 @@
 
     async function initOCR() {
         try {
-            console.log('Initializing OCR with Tesseract.js...');
+            console.log('Initializing Tesseract OCR...');
             document.getElementById('initWarning').style.display = 'block';
             modelLoaded = true;
             document.getElementById('initWarning').style.display = 'none';
-            document.getElementById('status').innerText = '✅ Scanner ready! Click Start Camera or Upload Photo.';
+            document.getElementById('status').innerText = '✅ Scanner ready! Capture or upload a product label.';
         } catch (error) {
             console.error('OCR initialization error:', error);
-            document.getElementById('status').innerText = '✅ Scanner ready! (Limited mode)';
             modelLoaded = true;
         }
     }
@@ -741,7 +775,7 @@
 
             document.getElementById('captureBtn').style.display = 'inline-block';
             document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('status').innerText = '✅ Camera ready. Click Capture.';
+            document.getElementById('status').innerText = '✅ Camera ready. Click Capture to scan.';
         } catch (error) {
             document.getElementById('status').innerText = '❌ Camera access denied or not available.';
             console.error('Camera error:', error);
@@ -793,7 +827,7 @@
             return;
         }
 
-        document.getElementById('status').innerText = '🌀 Extracting text with OCR...';
+        document.getElementById('status').innerText = '🤖 AI Analyzing image...';
         document.getElementById('progressBar').style.display = 'block';
         document.getElementById('progressFill').style.width = '0%';
 
@@ -802,9 +836,9 @@
             preview.src = imageDataUrl;
             preview.style.display = 'block';
 
-            document.getElementById('progressFill').style.width = '20%';
+            document.getElementById('progressFill').style.width = '25%';
 
-            // Use Tesseract.js for OCR
+            // Extract text with Tesseract
             const { data: { text } } = await Tesseract.recognize(
                 imageDataUrl,
                 'eng',
@@ -814,79 +848,66 @@
             document.getElementById('progressFill').style.width = '60%';
 
             const fullText = text.trim();
-            document.getElementById('rawLog').innerText = fullText || 'No text detected. Try a clearer image.';
 
             if (!fullText) {
-                document.getElementById('status').innerText = '⚠️ No text found. Try again with a clearer image.';
+                document.getElementById('status').innerText = '⚠️ No text detected. Try a clearer image.';
                 document.getElementById('progressBar').style.display = 'none';
                 return;
             }
 
-            // AI EXTRACTION
-            document.getElementById('progressFill').style.width = '80%';
-            const aiResults = extractWithAI(fullText);
+            // AI EXTRACTION - Only needed fields
+            document.getElementById('progressFill').style.width = '85%';
+            const aiResults = aiExtractor.extractNeededInfo(fullText);
             
             document.getElementById('progressFill').style.width = '100%';
-            document.getElementById('status').innerText = '✅ Scan complete! (AI-Powered Analysis)';
+            document.getElementById('status').innerText = '✅ Analysis complete! Review extracted information.';
 
-            autoFillFormWithAI(aiResults);
+            autoFillWithAI(aiResults);
 
             setTimeout(() => {
                 document.getElementById('progressBar').style.display = 'none';
             }, 1000);
 
         } catch (error) {
-            console.error('OCR Error:', error);
+            console.error('Processing Error:', error);
             document.getElementById('status').innerText = '❌ Error: ' + error.message;
             document.getElementById('progressBar').style.display = 'none';
         }
     }
 
-    function extractWithAI(text) {
-        const code = aiEngine.extractCode(text);
-        const batch = aiEngine.extractBatch(text);
-        const expiry = aiEngine.extractExpiry(text);
-        const qty = aiEngine.extractQuantity(text);
-        const desc = aiEngine.extractDescription(text);
-        const uom = aiEngine.detectUOM(text);
-
-        return {
-            code: code,
-            batch: batch,
-            expiry: expiry,
-            quantity: qty,
-            description: desc,
-            uom: uom
-        };
-    }
-
-    function autoFillFormWithAI(aiResults) {
+    function autoFillWithAI(aiResults) {
+        // Fill form with extracted data
         document.getElementById('itemCode').value = aiResults.code.value || '';
         document.getElementById('itemBatch').value = aiResults.batch.value || '';
         document.getElementById('itemExpiry').value = aiResults.expiry.value || '';
-        document.getElementById('itemQty').value = aiResults.quantity.value || '1';
-        document.getElementById('itemName').value = aiResults.description.value || '';
+        document.getElementById('itemQty').value = aiResults.qty.value || '1';
+        document.getElementById('itemName').value = aiResults.name.value || '';
         document.getElementById('itemUom').value = aiResults.uom;
 
-        showExtractionInfoWithConfidence(aiResults);
+        // Show extraction results with confidence
+        showExtractionResults(aiResults);
+
+        // Show AI insights
         showAIInsights(aiResults);
     }
 
-    function showExtractionInfoWithConfidence(aiResults) {
+    function showExtractionResults(aiResults) {
         document.getElementById('extractedCode').innerText = aiResults.code.value || '—';
-        document.getElementById('extractedDesc').innerText = aiResults.description.value || '—';
+        document.getElementById('extractedDesc').innerText = aiResults.name.value || '—';
         document.getElementById('extractedBatch').innerText = aiResults.batch.value || '—';
-        document.getElementById('extractedQty').innerText = aiResults.quantity.value || '—';
+        document.getElementById('extractedQty').innerText = aiResults.qty.value || '—';
         document.getElementById('extractedExp').innerText = aiResults.expiry.value || '—';
 
+        // Update confidence badges
         updateBadge('codeBadge', aiResults.code.confidence);
         updateBadge('batchBadge', aiResults.batch.confidence);
-        updateBadge('qtyBadge', aiResults.quantity.confidence);
+        updateBadge('qtyBadge', aiResults.qty.confidence);
         updateBadge('expBadge', aiResults.expiry.confidence);
-        updateBadge('descBadge', aiResults.description.confidence);
+        updateBadge('descBadge', aiResults.name.confidence);
 
+        // Show category
         const categoryBadge = document.getElementById('categoryBadge');
-        categoryBadge.innerText = '🏷️ ' + aiResults.description.category;
+        categoryBadge.innerText = aiResults.category;
         categoryBadge.style.display = 'inline-block';
 
         document.getElementById('extractionInfo').style.display = 'block';
@@ -894,27 +915,33 @@
 
     function updateBadge(elementId, confidence) {
         const badge = document.getElementById(elementId);
-        const conf = aiEngine.getConfidenceBadge(confidence);
+        const conf = aiExtractor.getConfidenceBadge(confidence);
         badge.innerText = conf.text + ' (' + Math.round(confidence * 100) + '%)';
         badge.className = 'confidence-badge ' + conf.class;
     }
 
     function showAIInsights(aiResults) {
         let insights = '';
-        
-        if (aiResults.code.confidence < 0.7 && !aiResults.code.value) {
-            insights += '📌 <strong>Code Detection:</strong> No product code found. Manually enter if needed.<br>';
-        }
-        
-        if (aiResults.expiry.confidence > 0.9 && aiResults.expiry.value) {
-            insights += '📅 <strong>Expiry:</strong> Confidently detected.<br>';
-        }
-        
-        if (aiResults.description.value) {
-            insights += '📦 <strong>Category:</strong> ' + aiResults.description.category + '<br>';
+
+        if (aiResults.code.value && aiResults.code.confidence >= 0.90) {
+            insights += '✅ Product code confidently detected<br>';
+        } else if (!aiResults.code.value) {
+            insights += '⚠️ No product code found - manually enter if available<br>';
         }
 
-        insights += '💡 <strong>Tip:</strong> Review all fields before saving. Edit if needed for accuracy.';
+        if (aiResults.expiry.value && aiResults.expiry.confidence >= 0.95) {
+            insights += '✅ Expiry date clearly identified<br>';
+        }
+
+        if (aiResults.name.value) {
+            insights += '✅ Category detected: <strong>' + aiResults.category + '</strong><br>';
+        }
+
+        if (aiResults.batch.value && aiResults.batch.confidence >= 0.90) {
+            insights += '✅ Batch/Lot number found<br>';
+        }
+
+        insights += '💡 Review fields before saving. Edit any uncertain values.';
 
         document.getElementById('aiInsightsContent').innerHTML = insights;
         document.getElementById('aiInsights').style.display = 'block';
@@ -958,7 +985,6 @@
         document.getElementById('itemUom').value = 'Pcs';
         document.getElementById('itemExpiry').value = '';
         setTodayDate();
-        document.getElementById('rawLog').innerText = 'Capture or upload a photo. OCR will extract text here.';
         document.getElementById('cameraPreview').style.display = 'none';
         document.getElementById('extractionInfo').style.display = 'none';
         document.getElementById('aiInsights').style.display = 'none';
