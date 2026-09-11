@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Inventory Scanner - PaddleOCR + AI Extraction</title>
-    <!-- PaddleOCR via ONNX Runtime -->
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/paddleocr-js@1.4.2/paddleOCR.min.js"></script>
-    <!-- TensorFlow.js for ML-based extraction -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Tesseract.js as fallback (more reliable) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v4/dist/tesseract.min.js"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -393,13 +390,13 @@
 <div class="container">
     <div class="header">
         <h1>📷 Smart Product Scanner v3</h1>
-        <p>Powered by PaddleOCR + Free AI Extraction Engine</p>
+        <p>Powered by AI-Powered Text Extraction + Free Intelligence</p>
     </div>
 
     <div class="content">
         <!-- INIT WARNING -->
         <div class="warning" id="initWarning" style="display: none;">
-            ⏳ <strong>Initializing PaddleOCR & AI Engine...</strong> First scan takes longer (~30-60 seconds) as it loads the AI model. Subsequent scans are faster.
+            ⏳ <strong>Initializing OCR Engine...</strong> First scan takes longer (~15-30 seconds) as it loads the model. Subsequent scans are faster.
         </div>
 
         <!-- CAMERA SECTION -->
@@ -438,7 +435,7 @@
             <label style="font-size: 12px; color: #666; margin-bottom: 8px; display: block;">
                 📝 Full Extracted Text:
             </label>
-            <div id="rawLog" class="text-box">Capture or upload a photo. PaddleOCR will extract text here.</div>
+            <div id="rawLog" class="text-box">Capture or upload a photo. OCR will extract text here.</div>
         </div>
 
         <!-- AI INSIGHTS -->
@@ -461,7 +458,7 @@
 
         <!-- INFO BOX -->
         <div class="info-box">
-            ℹ️ <strong>About this scanner:</strong> Uses PaddleOCR (better accuracy) + Free AI extraction to intelligently read product labels. Auto-detects product category, validates formats, and calculates confidence scores for each extracted field.
+            ℹ️ <strong>About this scanner:</strong> Uses OCR technology + Free AI extraction to intelligently read product labels. Auto-detects product category, validates formats, and calculates confidence scores for each extracted field.
         </div>
 
         <!-- FORM -->
@@ -554,7 +551,6 @@
 <script>
     let inventory = JSON.parse(localStorage.getItem('inventory_data')) || [];
     let currentStream = null;
-    let ocrEngine = null;
     let modelLoaded = false;
 
     // ============================================
@@ -564,16 +560,15 @@
     class AIExtractionEngine {
         constructor() {
             this.productCategories = {
-                'Food & Beverages': ['food', 'beverage', 'drink', 'milk', 'juice', 'bread', 'cereal', 'snack', 'chocolate', 'coffee', 'tea', 'oil', 'sauce'],
-                'Healthcare': ['medicine', 'tablet', 'capsule', 'syrup', 'cream', 'ointment', 'vitamin', 'health', 'pharmaceutical', 'drug'],
-                'Beauty & Personal Care': ['shampoo', 'soap', 'cream', 'lotion', 'deodorant', 'toothpaste', 'cosmetic', 'perfume', 'beauty'],
-                'Electronics': ['battery', 'cable', 'charger', 'device', 'electronic', 'electric'],
-                'Household': ['detergent', 'cleaner', 'disinfectant', 'household', 'kitchen', 'laundry'],
+                'Food & Beverages': ['food', 'beverage', 'drink', 'milk', 'juice', 'bread', 'cereal', 'snack', 'chocolate', 'coffee', 'tea', 'oil', 'sauce', 'water', 'yogurt', 'butter'],
+                'Healthcare': ['medicine', 'tablet', 'capsule', 'syrup', 'cream', 'ointment', 'vitamin', 'health', 'pharmaceutical', 'drug', 'medical'],
+                'Beauty & Personal Care': ['shampoo', 'soap', 'cream', 'lotion', 'deodorant', 'toothpaste', 'cosmetic', 'perfume', 'beauty', 'hair', 'face'],
+                'Electronics': ['battery', 'cable', 'charger', 'device', 'electronic', 'electric', 'phone', 'computer'],
+                'Household': ['detergent', 'cleaner', 'disinfectant', 'household', 'kitchen', 'laundry', 'paper'],
                 'Other': []
             };
         }
 
-        // Classify product based on text
         classifyProduct(text) {
             const lowerText = text.toLowerCase();
             for (let [category, keywords] of Object.entries(this.productCategories)) {
@@ -584,7 +579,6 @@
             return 'Other';
         }
 
-        // Extract code with confidence scoring
         extractCode(text) {
             const patterns = [
                 { regex: /SKU[:\s#-]*([A-Z0-9\-]{3,15})/i, confidence: 0.95 },
@@ -603,7 +597,6 @@
             return { value: '', confidence: 0 };
         }
 
-        // Extract batch number with confidence scoring
         extractBatch(text) {
             const patterns = [
                 { regex: /BATCH[:\s#-]*([A-Z0-9\-]{2,15})/i, confidence: 0.95 },
@@ -622,7 +615,6 @@
             return { value: '', confidence: 0 };
         }
 
-        // Extract expiry date with confidence scoring
         extractExpiry(text) {
             const patterns = [
                 { regex: /(?:EXP|EXPIRY|BEST BEFORE|EXPIRES)[:\s-]*([0-9]{1,2}[\/\-\.][0-9]{1,2}[\/\-\.][0-9]{2,4})/i, confidence: 0.98 },
@@ -639,7 +631,6 @@
             return { value: '', confidence: 0 };
         }
 
-        // Extract quantity with confidence scoring
         extractQuantity(text) {
             const patterns = [
                 { regex: /(?:qty|quantity|amount)[:\s]*(\d+)/i, confidence: 0.95 },
@@ -658,11 +649,9 @@
             return { value: '', confidence: 0 };
         }
 
-        // Smart product description extraction
         extractDescription(text) {
             const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
             
-            // Filter out code-like lines and metadata
             let candidates = lines.filter(line => {
                 return !/^[A-Z0-9\-]{3,}$/.test(line) &&
                        !/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/.test(line) &&
@@ -681,7 +670,6 @@
             return { value: '', confidence: 0, category: 'Other' };
         }
 
-        // Detect unit of measure
         detectUOM(text) {
             const uomPatterns = {
                 'Bottle': /bottle|btl|ml|milliliter/i,
@@ -701,7 +689,6 @@
             return 'Pcs';
         }
 
-        // Get confidence badge color
         getConfidenceBadge(confidence) {
             if (confidence >= 0.85) return { text: '✓ High', class: 'confidence-high' };
             if (confidence >= 0.65) return { text: '~ Medium', class: 'confidence-medium' };
@@ -711,38 +698,23 @@
 
     const aiEngine = new AIExtractionEngine();
 
-    // Initialize
     async function init() {
         setTodayDate();
         renderTable();
-        await initPaddleOCR();
+        await initOCR();
     }
 
-    // Initialize PaddleOCR
-    async function initPaddleOCR() {
+    async function initOCR() {
         try {
-            console.log('Initializing PaddleOCR & AI Engine...');
+            console.log('Initializing OCR with Tesseract.js...');
             document.getElementById('initWarning').style.display = 'block';
-            
-            if (window.paddleOCR) {
-                ocrEngine = await window.paddleOCR.PaddleOCR.create({
-                    ocr_version: '2',
-                    lang: 'en',
-                    enable_mkldnn: true,
-                });
-                modelLoaded = true;
-                console.log('PaddleOCR + AI Engine initialized successfully');
-                document.getElementById('initWarning').style.display = 'none';
-                document.getElementById('status').innerText = '✅ Scanner ready! Click Start Camera or Upload Photo.';
-            } else {
-                console.error('PaddleOCR library not loaded');
-                document.getElementById('status').innerText = '⚠️ PaddleOCR library loading...';
-                setTimeout(initPaddleOCR, 2000);
-            }
+            modelLoaded = true;
+            document.getElementById('initWarning').style.display = 'none';
+            document.getElementById('status').innerText = '✅ Scanner ready! Click Start Camera or Upload Photo.';
         } catch (error) {
-            console.error('Error initializing PaddleOCR:', error);
-            document.getElementById('status').innerText = '⚠️ Loading PaddleOCR models...';
-            setTimeout(initPaddleOCR, 3000);
+            console.error('OCR initialization error:', error);
+            document.getElementById('status').innerText = '✅ Scanner ready! (Limited mode)';
+            modelLoaded = true;
         }
     }
 
@@ -750,7 +722,6 @@
         document.getElementById('itemReceive').valueAsDate = new Date();
     }
 
-    // CAMERA FUNCTIONS
     async function startCamera() {
         try {
             document.getElementById('status').innerText = '🌀 Requesting camera access...';
@@ -772,7 +743,8 @@
             document.getElementById('stopBtn').style.display = 'inline-block';
             document.getElementById('status').innerText = '✅ Camera ready. Click Capture.';
         } catch (error) {
-            document.getElementById('status').innerText = '❌ Camera access denied.';
+            document.getElementById('status').innerText = '❌ Camera access denied or not available.';
+            console.error('Camera error:', error);
         }
     }
 
@@ -815,14 +787,13 @@
         reader.readAsDataURL(file);
     });
 
-    // IMAGE PROCESSING WITH PADDLEOCR + AI EXTRACTION
     async function processImage(imageDataUrl) {
         if (!modelLoaded) {
-            document.getElementById('status').innerText = '⏳ PaddleOCR still loading... Please wait.';
+            document.getElementById('status').innerText = '⏳ OCR still loading... Please wait.';
             return;
         }
 
-        document.getElementById('status').innerText = '🌀 Processing with PaddleOCR + AI...';
+        document.getElementById('status').innerText = '🌀 Extracting text with OCR...';
         document.getElementById('progressBar').style.display = 'block';
         document.getElementById('progressFill').style.width = '0%';
 
@@ -831,60 +802,46 @@
             preview.src = imageDataUrl;
             preview.style.display = 'block';
 
-            const img = new Image();
-            img.onload = async function() {
-                try {
-                    document.getElementById('progressFill').style.width = '30%';
-                    const result = await ocrEngine.ocr(img);
-                    document.getElementById('progressFill').style.width = '60%';
+            document.getElementById('progressFill').style.width = '20%';
 
-                    // Extract raw text
-                    let fullText = '';
-                    if (result && result.length > 0) {
-                        result.forEach(line => {
-                            if (line[1]) {
-                                fullText += line[1][0] + '\n';
-                            }
-                        });
-                    }
+            // Use Tesseract.js for OCR
+            const { data: { text } } = await Tesseract.recognize(
+                imageDataUrl,
+                'eng',
+                { logger: m => console.log('OCR progress:', m) }
+            );
 
-                    fullText = fullText.trim();
-                    document.getElementById('rawLog').innerText = fullText || 'No text detected. Try a clearer image.';
+            document.getElementById('progressFill').style.width = '60%';
 
-                    if (!fullText) {
-                        document.getElementById('status').innerText = '⚠️ No text found. Try again.';
-                        return;
-                    }
+            const fullText = text.trim();
+            document.getElementById('rawLog').innerText = fullText || 'No text detected. Try a clearer image.';
 
-                    // AI EXTRACTION
-                    document.getElementById('progressFill').style.width = '80%';
-                    const aiResults = extractWithAI(fullText);
-                    
-                    document.getElementById('progressFill').style.width = '100%';
-                    document.getElementById('status').innerText = '✅ Scan complete! (AI-Powered)';
+            if (!fullText) {
+                document.getElementById('status').innerText = '⚠️ No text found. Try again with a clearer image.';
+                document.getElementById('progressBar').style.display = 'none';
+                return;
+            }
 
-                    autoFillFormWithAI(aiResults);
+            // AI EXTRACTION
+            document.getElementById('progressFill').style.width = '80%';
+            const aiResults = extractWithAI(fullText);
+            
+            document.getElementById('progressFill').style.width = '100%';
+            document.getElementById('status').innerText = '✅ Scan complete! (AI-Powered Analysis)';
 
-                    setTimeout(() => {
-                        document.getElementById('progressBar').style.display = 'none';
-                    }, 1000);
+            autoFillFormWithAI(aiResults);
 
-                } catch (error) {
-                    console.error('OCR Error:', error);
-                    document.getElementById('status').innerText = '❌ Error processing image.';
-                    document.getElementById('progressBar').style.display = 'none';
-                }
-            };
-            img.src = imageDataUrl;
+            setTimeout(() => {
+                document.getElementById('progressBar').style.display = 'none';
+            }, 1000);
 
         } catch (error) {
-            console.error('Error:', error);
+            console.error('OCR Error:', error);
             document.getElementById('status').innerText = '❌ Error: ' + error.message;
             document.getElementById('progressBar').style.display = 'none';
         }
     }
 
-    // AI EXTRACTION FUNCTION
     function extractWithAI(text) {
         const code = aiEngine.extractCode(text);
         const batch = aiEngine.extractBatch(text);
@@ -903,9 +860,7 @@
         };
     }
 
-    // AUTO-FILL FORM WITH AI RESULTS
     function autoFillFormWithAI(aiResults) {
-        // Fill fields
         document.getElementById('itemCode').value = aiResults.code.value || '';
         document.getElementById('itemBatch').value = aiResults.batch.value || '';
         document.getElementById('itemExpiry').value = aiResults.expiry.value || '';
@@ -913,10 +868,7 @@
         document.getElementById('itemName').value = aiResults.description.value || '';
         document.getElementById('itemUom').value = aiResults.uom;
 
-        // Show extraction info with confidence badges
         showExtractionInfoWithConfidence(aiResults);
-
-        // Show AI insights
         showAIInsights(aiResults);
     }
 
@@ -927,14 +879,12 @@
         document.getElementById('extractedQty').innerText = aiResults.quantity.value || '—';
         document.getElementById('extractedExp').innerText = aiResults.expiry.value || '—';
 
-        // Show confidence badges
         updateBadge('codeBadge', aiResults.code.confidence);
         updateBadge('batchBadge', aiResults.batch.confidence);
         updateBadge('qtyBadge', aiResults.quantity.confidence);
         updateBadge('expBadge', aiResults.expiry.confidence);
         updateBadge('descBadge', aiResults.description.confidence);
 
-        // Show category badge
         const categoryBadge = document.getElementById('categoryBadge');
         categoryBadge.innerText = '🏷️ ' + aiResults.description.category;
         categoryBadge.style.display = 'inline-block';
@@ -953,15 +903,15 @@
         let insights = '';
         
         if (aiResults.code.confidence < 0.7 && !aiResults.code.value) {
-            insights += '📌 <strong>Code Detection:</strong> No product code detected. Manually enter if available.<br>';
+            insights += '📌 <strong>Code Detection:</strong> No product code found. Manually enter if needed.<br>';
         }
         
         if (aiResults.expiry.confidence > 0.9 && aiResults.expiry.value) {
-            insights += '📅 <strong>Expiry Date:</strong> Confidently detected.<br>';
+            insights += '📅 <strong>Expiry:</strong> Confidently detected.<br>';
         }
         
         if (aiResults.description.value) {
-            insights += '📦 <strong>Category:</strong> Classified as ' + aiResults.description.category + '<br>';
+            insights += '📦 <strong>Category:</strong> ' + aiResults.description.category + '<br>';
         }
 
         insights += '💡 <strong>Tip:</strong> Review all fields before saving. Edit if needed for accuracy.';
@@ -1008,7 +958,7 @@
         document.getElementById('itemUom').value = 'Pcs';
         document.getElementById('itemExpiry').value = '';
         setTodayDate();
-        document.getElementById('rawLog').innerText = 'Capture or upload a photo. PaddleOCR will extract text here.';
+        document.getElementById('rawLog').innerText = 'Capture or upload a photo. OCR will extract text here.';
         document.getElementById('cameraPreview').style.display = 'none';
         document.getElementById('extractionInfo').style.display = 'none';
         document.getElementById('aiInsights').style.display = 'none';
@@ -1083,7 +1033,6 @@
         }
     }
 
-    // Initialize on load
     init();
 </script>
 
